@@ -1,12 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Обновляем функцию getEnvVar, чтобы она всегда возвращала значение по умолчанию, если переменная окружения не установлена
-function getEnvVar(name: string, defaultValue = ""): string {
+// Функция для безопасного получения переменных окружения
+function getEnvVar(name: string): string {
   const value = process.env[name]
 
-  if (!value || value === "" || value.includes("YOUR_")) {
-    console.error(`Missing or invalid environment variable: ${name}`)
-    return defaultValue
+  if (!value || value === "") {
+    throw new Error(`Missing required environment variable: ${name}`)
   }
 
   return value
@@ -36,33 +35,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // В функции GET обновляем получение clientId и clientSecret
-    // Заменяем:
-    // const clientId = getEnvVar("DISCORD_CLIENT_ID", process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "")
-    // const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET", "")
+    // Получаем переменные окружения
+    const clientId = getEnvVar("DISCORD_CLIENT_ID")
+    const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET")
+    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
 
-    // На:
-    const clientId = "1362383105670774944" // Жестко закодированный ID
-    const clientSecret = "qvsUWYqIQAQGqAHGi9NHBb6Ee7pN3-Jn" // Жестко закодированный секрет
-
-    // Также заменяем получение redirectUri:
-    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Жестко закодированный URI
-
-    // Логирование для отладки
+    // Логирование для отладки (без раскрытия секретов)
     console.log("DEBUG: Using Discord credentials:", {
-      clientId: clientId ? `Set (length: ${clientId.length})` : "NOT SET",
-      clientSecret: clientSecret ? "Set (hidden)" : "NOT SET",
+      clientId: `${clientId.substring(0, 5)}...`,
+      clientSecret: "Hidden for security",
       redirectUri,
-    })
-
-    // Добавляем больше отладочной информации
-    console.log("DEBUG: Full token request details:", {
-      client_id: clientId,
-      grant_type: "authorization_code",
-      code: code ? `${code.substring(0, 5)}...` : "no code",
-      redirect_uri: redirectUri,
-      // Не логируем client_secret полностью в целях безопасности
-      client_secret_length: clientSecret ? clientSecret.length : 0,
     })
 
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
@@ -79,10 +61,9 @@ export async function GET(request: NextRequest) {
       }),
     })
 
-    // Также добавляем логирование ответа от Discord
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error("Failed to get token. Status:", tokenResponse.status, "Response:", errorText)
+      console.error("Failed to get token:", errorText)
       return NextResponse.redirect(
         new URL(`/?error=token_error&details=${encodeURIComponent(errorText)}`, "http://139.59.129.132:3000"),
       )

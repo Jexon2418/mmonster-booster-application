@@ -21,7 +21,7 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
 
     setDebugInfo(`
-      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${clientId ? `Установлен (длина: ${clientId.length})` : "Не установлен"}
+      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${clientId ? `Установлен (первые 5 символов: ${clientId.substring(0, 5)}...)` : "Не установлен"}
       NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${redirectUri || "Не установлен"}
       NEXT_PUBLIC_RUNTIME_CHECK: ${process.env.NEXT_PUBLIC_RUNTIME_CHECK || "Не установлен"}
     `)
@@ -43,16 +43,6 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
       // Получаем URL для аутентификации и перенаправляем на него
       const authUrl = getDiscordAuthUrl(state)
       console.log("Discord auth URL:", authUrl)
-
-      // Добавляем дополнительную отладочную информацию
-      console.log("DEBUG: Discord auth initiated with:", {
-        clientId: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-          ? `Set (length: ${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID.length})`
-          : "NOT SET",
-        redirectUri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || "NOT SET",
-        state: state ? `${state.substring(0, 5)}...` : "no state",
-      })
-
       window.location.href = authUrl
     } catch (err) {
       console.error("Discord auth error:", err)
