@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Функция для безопасного получения переменных окружения
+// Обновляем функцию getEnvVar, чтобы она всегда возвращала значение по умолчанию, если переменная окружения не установлена
 function getEnvVar(name: string, defaultValue = ""): string {
   const value = process.env[name]
 
@@ -36,15 +36,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Проверяем, что у нас есть все необходимые переменные окружения
-    const clientId = getEnvVar("DISCORD_CLIENT_ID", process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "")
-    const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET", "")
+    // В функции GET обновляем получение clientId и clientSecret
+    // Заменяем:
+    // const clientId = getEnvVar("DISCORD_CLIENT_ID", process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "")
+    // const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET", "")
 
-    // Используем URL перенаправления из переменных окружения или создаем на основе текущего запроса
-    const redirectUri = getEnvVar(
-      "NEXT_PUBLIC_DISCORD_REDIRECT_URI",
-      "http://139.59.129.132:3000/api/auth/discord/callback",
-    )
+    // На:
+    const clientId = "1362383105670774944" // Жестко закодированный ID
+    const clientSecret = "67af0fc2ed9cf8351af7bc4a06848fa4b8ca4d229be81c7fcf164f0d2158da37" // Жестко закодированный секрет
+
+    // Также заменяем получение redirectUri:
+    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Жестко закодированный URI
 
     // Логирование для отладки
     console.log("DEBUG: Using Discord credentials:", {

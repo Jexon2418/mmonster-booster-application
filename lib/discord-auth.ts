@@ -31,7 +31,7 @@ const SCOPES = ["identify", "email"]
 // Создаем URL для аутентификации с проверкой
 export function getDiscordAuthUrl(state?: string) {
   // Получаем переменные окружения только во время выполнения
-  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1362383105670774944"
+  const clientId = "1362383105670774944" // Жестко закодированный ID
 
   // Используем фиксированный URL перенаправления для вашего сервера
   const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
