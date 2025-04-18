@@ -31,7 +31,7 @@ const SCOPES = ["identify", "email"]
 // Создаем URL для аутентификации с проверкой
 export function getDiscordAuthUrl(state?: string) {
   // Получаем переменные окружения только во время выполнения
-  const clientId = "1362383105670774944" // Жестко закодированный ID
+  const clientId = "1362383105670774944" // Проверенный ID
 
   // Используем фиксированный URL перенаправления для вашего сервера
   const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
@@ -54,6 +54,15 @@ export function getDiscordAuthUrl(state?: string) {
   if (state) {
     params.append("state", state)
   }
+
+  // Добавляем больше отладочной информации
+  console.log("DEBUG: Generated Discord auth URL with params:", {
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: SCOPES.join(" "),
+    state: state ? `${state.substring(0, 5)}...` : "no state",
+  })
 
   return `https://discord.com/api/oauth2/authorize?${params.toString()}`
 }

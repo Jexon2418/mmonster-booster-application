@@ -55,6 +55,16 @@ export async function GET(request: NextRequest) {
       redirectUri,
     })
 
+    // Добавляем больше отладочной информации
+    console.log("DEBUG: Full token request details:", {
+      client_id: clientId,
+      grant_type: "authorization_code",
+      code: code ? `${code.substring(0, 5)}...` : "no code",
+      redirect_uri: redirectUri,
+      // Не логируем client_secret полностью в целях безопасности
+      client_secret_length: clientSecret ? clientSecret.length : 0,
+    })
+
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
       headers: {
@@ -69,9 +79,10 @@ export async function GET(request: NextRequest) {
       }),
     })
 
+    // Также добавляем логирование ответа от Discord
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
-      console.error("Failed to get token:", errorText)
+      console.error("Failed to get token. Status:", tokenResponse.status, "Response:", errorText)
       return NextResponse.redirect(
         new URL(`/?error=token_error&details=${encodeURIComponent(errorText)}`, "http://139.59.129.132:3000"),
       )
