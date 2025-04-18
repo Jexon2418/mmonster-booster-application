@@ -10,7 +10,7 @@ process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID = "1362383105670774944"
 process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI = "http://139.59.129.132:3000/api/auth/discord/callback"
 process.env.NEXT_PUBLIC_RUNTIME_CHECK = "1"
 
-// Добавляем отладочную информацию при запуске сервера
+// Добавляем отладочную инфо��мацию при запуске сервера
 console.log("Starting server with Discord credentials:", {
   DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID
     ? `Set (length: ${process.env.DISCORD_CLIENT_ID.length})`

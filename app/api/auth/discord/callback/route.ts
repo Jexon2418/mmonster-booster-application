@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     // На:
     const clientId = "1362383105670774944" // Жестко закодированный ID
-    const clientSecret = "67af0fc2ed9cf8351af7bc4a06848fa4b8ca4d229be81c7fcf164f0d2158da37" // Жестко закодированный секрет
+    const clientSecret = "qvsUWYqIQAQGqAHGi9NHBb6Ee7pN3-Jn" // Жестко закодированный секрет
 
     // Также заменяем получение redirectUri:
     const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Жестко закодированный URI
