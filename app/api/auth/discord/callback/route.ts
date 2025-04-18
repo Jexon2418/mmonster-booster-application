@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-// Функция для безопасного получения переменных окружения
+// Function to safely get environment variables
 function getEnvVar(name: string): string {
   const value = process.env[name]
 
@@ -12,14 +12,14 @@ function getEnvVar(name: string): string {
 }
 
 export async function GET(request: NextRequest) {
-  // Получаем код из URL параметров
+  // Get code from URL parameters
   const searchParams = request.nextUrl.searchParams
   const code = searchParams.get("code")
   const state = searchParams.get("state")
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
 
-  // Если Discord вернул ошибку
+  // If Discord returned an error
   if (error) {
     console.error(`Discord auth error: ${error} - ${errorDescription}`)
     return NextResponse.redirect(
@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Получаем переменные окружения
-    const clientId = getEnvVar("DISCORD_CLIENT_ID")
-    const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET")
-    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
+    // Use hardcoded values for server-side
+    const clientId = "1362383105670774944" // Hardcoded client ID
+    const clientSecret = getEnvVar("DISCORD_CLIENT_SECRET") // Get from environment variables
+    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Hardcoded redirect URI
 
-    // Логирование для отладки (без раскрытия секретов)
+    // Logging for debugging (without revealing secrets)
     console.log("DEBUG: Using Discord credentials:", {
       clientId: `${clientId.substring(0, 5)}...`,
       clientSecret: "Hidden for security",
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const { access_token } = tokenData
 
-    // Получаем информацию о пользователе
+    // Get user information
     const userResponse = await fetch("https://discord.com/api/users/@me", {
       headers: {
         Authorization: `Bearer ${access_token}`,
@@ -89,10 +89,10 @@ export async function GET(request: NextRequest) {
 
     const userData = await userResponse.json()
 
-    // Перенаправляем обратно в приложение с данными пользователя в URL
+    // Redirect back to the application with user data in URL
     const encodedUserData = encodeURIComponent(JSON.stringify(userData))
 
-    // ВАЖНО: Используем жестко закодированный URL вашего сервера
+    // IMPORTANT: Use hardcoded URL for your server
     return NextResponse.redirect(new URL(`/?discord_user=${encodedUserData}`, "http://139.59.129.132:3000"))
   } catch (error) {
     console.error("Discord auth error:", error)

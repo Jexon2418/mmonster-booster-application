@@ -15,15 +15,17 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
   const [error, setError] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
 
-  // Добавляем отладочную информацию при загрузке компонента
+  // Add debug information when component loads
   useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
-    const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
+    // For client-side, we need to use hardcoded values since environment variables
+    // might not be properly exposed to the client
+    const clientId = "1362383105670774944" // Hardcoded client ID
+    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Hardcoded redirect URI
 
     setDebugInfo(`
-      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${clientId ? `Установлен (первые 5 символов: ${clientId.substring(0, 5)}...)` : "Не установлен"}
-      NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${redirectUri || "Не установлен"}
-      NEXT_PUBLIC_RUNTIME_CHECK: ${process.env.NEXT_PUBLIC_RUNTIME_CHECK || "Не установлен"}
+      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${clientId ? `Set (first 5 chars: ${clientId.substring(0, 5)}...)` : "Not set"}
+      NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${redirectUri || "Not set"}
+      NEXT_PUBLIC_RUNTIME_CHECK: 1
     `)
   }, [])
 
@@ -32,22 +34,22 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
     setError(null)
 
     try {
-      // Генерируем случайное состояние для безопасности
+      // Generate random state for security
       const state = Math.random().toString(36).substring(2, 15)
 
-      // Сохраняем состояние в localStorage для проверки при возвращении
+      // Save state in localStorage for verification when returning
       if (typeof window !== "undefined") {
         localStorage.setItem("discord_auth_state", state)
       }
 
-      // Получаем URL для аутентификации и перенаправляем на него
+      // Get authentication URL and redirect to it
       const authUrl = getDiscordAuthUrl(state)
       console.log("Discord auth URL:", authUrl)
       window.location.href = authUrl
     } catch (err) {
       console.error("Discord auth error:", err)
       setError(
-        "Ошибка при подключении к Discord. Проверьте настройки переменных окружения или продолжите без аутентификации.",
+        "Error connecting to Discord. Please check environment variable settings or continue without authentication.",
       )
       setIsLoading(false)
     }
@@ -63,7 +65,7 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
           <p>{error}</p>
           {debugInfo && (
             <details className="mt-2 text-xs">
-              <summary>Отладочная информация</summary>
+              <summary>Debug Information</summary>
               <pre className="mt-2 p-2 bg-gray-800 rounded overflow-auto">{debugInfo}</pre>
             </details>
           )}

@@ -1,4 +1,4 @@
-// Тип для данных пользователя Discord
+// Type for Discord user data
 export interface DiscordUser {
   id: string
   username: string
@@ -7,21 +7,22 @@ export interface DiscordUser {
   email?: string
 }
 
-// Области доступа, которые мы запрашиваем
+// Scopes we request
 const SCOPES = ["identify", "email"]
 
-// Создаем URL для аутентификации с проверкой
+// Create authentication URL with verification
 export function getDiscordAuthUrl(state?: string) {
-  // Получаем переменные окружения только во время выполнения
-  const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+  // Use hardcoded values for client-side
+  const clientId = "1362383105670774944" // Hardcoded client ID
+  const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Hardcoded redirect URI
 
+  console.log("Using Discord auth with:", { clientId, redirectUri })
+
+  // Check that Client ID is not empty
   if (!clientId) {
     console.error("Discord Client ID is not properly set")
     throw new Error("Discord Client ID is not properly configured")
   }
-
-  // Используем фиксированный URL перенаправления для вашего сервера
-  const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
 
   const params = new URLSearchParams({
     client_id: clientId,
