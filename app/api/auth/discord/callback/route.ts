@@ -26,13 +26,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         `/?error=${encodeURIComponent(error)}&error_description=${encodeURIComponent(errorDescription || "")}`,
-        request.url,
+        "http://139.59.129.132:3000",
       ),
     )
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL("/?error=no_code", request.url))
+    return NextResponse.redirect(new URL("/?error=no_code", "http://139.59.129.132:3000"))
   }
 
   try {
@@ -70,7 +70,9 @@ export async function GET(request: NextRequest) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text()
       console.error("Failed to get token:", errorText)
-      return NextResponse.redirect(new URL(`/?error=token_error&details=${encodeURIComponent(errorText)}`, request.url))
+      return NextResponse.redirect(
+        new URL(`/?error=token_error&details=${encodeURIComponent(errorText)}`, "http://139.59.129.132:3000"),
+      )
     }
 
     const tokenData = await tokenResponse.json()
@@ -86,7 +88,9 @@ export async function GET(request: NextRequest) {
     if (!userResponse.ok) {
       const errorText = await userResponse.text()
       console.error("Failed to get user:", errorText)
-      return NextResponse.redirect(new URL(`/?error=user_error&details=${encodeURIComponent(errorText)}`, request.url))
+      return NextResponse.redirect(
+        new URL(`/?error=user_error&details=${encodeURIComponent(errorText)}`, "http://139.59.129.132:3000"),
+      )
     }
 
     const userData = await userResponse.json()
@@ -94,13 +98,12 @@ export async function GET(request: NextRequest) {
     // Перенаправляем обратно в приложение с данными пользователя в URL
     const encodedUserData = encodeURIComponent(JSON.stringify(userData))
 
-    // Используем базовый URL сервера для перенаправления
-    const baseUrl = "http://139.59.129.132:3000"
-    return NextResponse.redirect(new URL(`${baseUrl}/?discord_user=${encodedUserData}`))
+    // ВАЖНО: Используем жестко закодированный URL вашего сервера
+    return NextResponse.redirect(new URL(`/?discord_user=${encodedUserData}`, "http://139.59.129.132:3000"))
   } catch (error) {
     console.error("Discord auth error:", error)
     return NextResponse.redirect(
-      new URL(`/?error=server_error&details=${encodeURIComponent(String(error))}`, request.url),
+      new URL(`/?error=server_error&details=${encodeURIComponent(String(error))}`, "http://139.59.129.132:3000"),
     )
   }
 }

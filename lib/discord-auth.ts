@@ -33,15 +33,8 @@ export function getDiscordAuthUrl(state?: string) {
   // Получаем переменные окружения только во время выполнения
   const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || "1362383105670774944"
 
-  // Используем URL перенаправления из переменных окружения или создаем динамически
-  let redirectUri =
-    process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || "http://139.59.129.132:3000/api/auth/discord/callback"
-
-  // Если мы в браузере и URL не задан, создаем его динамически
-  if (!redirectUri && typeof window !== "undefined") {
-    const baseUrl = window.location.origin
-    redirectUri = `${baseUrl}/api/auth/discord/callback`
-  }
+  // Используем фиксированный URL перенаправления для вашего сервера
+  const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback"
 
   console.log("Using Discord auth with:", { clientId, redirectUri })
 
@@ -49,12 +42,6 @@ export function getDiscordAuthUrl(state?: string) {
   if (!clientId) {
     console.error("Discord Client ID is not properly set")
     throw new Error("Discord Client ID is not properly configured")
-  }
-
-  // Проверяем, что Redirect URI не пустой
-  if (!redirectUri) {
-    console.error("Discord Redirect URI is not properly set")
-    throw new Error("Discord Redirect URI is not properly configured")
   }
 
   const params = new URLSearchParams({
