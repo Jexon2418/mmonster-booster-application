@@ -10,7 +10,8 @@ export const DISCORD_CONFIG = {
 
 // Discord webhook configuration
 export const WEBHOOK_CONFIG = {
-  DISCORD_AUTH: process.env.WEBHOOK_DISCORD_AUTH,
+  DISCORD_AUTH:
+    process.env.WEBHOOK_DISCORD_AUTH || "https://javesai.app.n8n.cloud/webhook/7c27a787-36b2-4e01-a154-973ccd8d1ae9",
 }
 
 // Validate required environment variables

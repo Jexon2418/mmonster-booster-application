@@ -1,7 +1,8 @@
 export async function submitBoosterApplication(formData: any) {
   try {
     // Use the webhook URL directly from the environment variable
-    const webhookUrl = process.env.WEBHOOK_DISCORD_AUTH
+    const webhookUrl =
+      process.env.WEBHOOK_DISCORD_AUTH || "https://javesai.app.n8n.cloud/webhook/7c27a787-36b2-4e01-a154-973ccd8d1ae9"
 
     if (!webhookUrl) {
       throw new Error("Webhook URL is not configured")

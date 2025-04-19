@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation"
 import type { FormData, DiscordUser } from "../booster-application-form"
 import { saveDiscordUser } from "@/lib/auth-service"
 import Image from "next/image"
-import { testDiscordWebhook } from "@/lib/webhook-test"
 
 interface DiscordAuthStepProps {
   onContinue?: () => void
@@ -27,9 +26,6 @@ export function DiscordAuthStep({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [configError, setConfigError] = useState<boolean>(false)
-  const [webhookTestResult, setWebhookTestResult] = useState<{ success: boolean; message: string } | null>(null)
-  const [isTestingWebhook, setIsTestingWebhook] = useState(false)
-  const [redirectUri, setRedirectUri] = useState<string>("")
   const searchParams = useSearchParams()
 
   // Get Discord user data from URL if available
@@ -50,24 +46,6 @@ export function DiscordAuthStep({
   const handleSkip = () => {
     if (onContinue) {
       onContinue()
-    }
-  }
-
-  // Handle webhook test
-  const handleTestWebhook = async () => {
-    setIsTestingWebhook(true)
-    setWebhookTestResult(null)
-
-    try {
-      const result = await testDiscordWebhook()
-      setWebhookTestResult(result)
-    } catch (error) {
-      setWebhookTestResult({
-        success: false,
-        message: `Error: ${error instanceof Error ? error.message : String(error)}`,
-      })
-    } finally {
-      setIsTestingWebhook(false)
     }
   }
 
@@ -96,9 +74,6 @@ export function DiscordAuthStep({
         if (!clientId || !redirectUri) {
           throw new Error("Missing Discord configuration. Please check your environment variables.")
         }
-
-        setRedirectUri(redirectUri)
-        console.log("Discord redirect URI:", redirectUri)
 
         const state = Math.random().toString(36).substring(2, 15)
         const scopes = ["identify", "email"].join(" ")
@@ -246,62 +221,17 @@ export function DiscordAuthStep({
         </button>
       </div>
 
-      {/* Display the redirect URI for debugging */}
-      <div className="mt-4 p-3 bg-gray-800 rounded-md text-xs text-gray-400 overflow-auto">
-        <p>Redirect URI: {redirectUri}</p>
-      </div>
-
-      {/* Webhook Test Section */}
-      <div className="mt-4 border border-gray-700 rounded-md p-4 bg-[#1E2533]">
-        <h3 className="text-white font-medium mb-2">Webhook Testing</h3>
-        <p className="text-gray-400 text-sm mb-4">Click the button below to test if the webhook is working properly.</p>
-        <button
-          onClick={handleTestWebhook}
-          disabled={isTestingWebhook}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-        >
-          {isTestingWebhook ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Testing Webhook...
-            </>
-          ) : (
-            "Test Webhook Directly"
-          )}
-        </button>
-
-        {webhookTestResult && (
-          <div
-            className={`mt-4 p-3 rounded-md ${
-              webhookTestResult.success ? "bg-green-900/20 text-green-300" : "bg-red-900/20 text-red-300"
-            }`}
+      {/* Temporary skip button for development environments only */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={handleSkip}
+            className="px-4 py-2 text-xs text-gray-400 border border-gray-700 rounded-md hover:bg-gray-800 transition-colors"
           >
-            {webhookTestResult.message}
-          </div>
-        )}
-      </div>
-
-      {/* Temporary skip button for testing */}
-      <div className="mt-4 text-center">
-        <button
-          onClick={handleSkip}
-          className="px-4 py-2 text-xs text-gray-400 border border-gray-700 rounded-md hover:bg-gray-800 transition-colors"
-        >
-          [TEMP] Skip Discord Login for Testing
-        </button>
-      </div>
+            Skip Discord Login (Dev Only)
+          </button>
+        </div>
+      )}
     </FormSection>
   )
 }
