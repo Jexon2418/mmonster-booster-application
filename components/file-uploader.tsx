@@ -11,7 +11,7 @@ import {
   MAX_FILES,
   MAX_FILE_SIZE,
   ALLOWED_FILE_TYPES,
-  ensureStorageBucket,
+  checkStorageAvailability,
 } from "@/lib/supabaseStorage"
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import Image from "next/image"
@@ -26,25 +26,30 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const [isBucketReady, setIsBucketReady] = useState(false)
+  const [isStorageAvailable, setIsStorageAvailable] = useState(false)
+  const [isCheckingStorage, setIsCheckingStorage] = useState(true)
   const { toast } = useToast()
 
-  // Check if the storage bucket exists when the component mounts
+  // Check if storage is available when the component mounts
   useEffect(() => {
-    const checkBucket = async () => {
+    const checkStorage = async () => {
+      setIsCheckingStorage(true)
       try {
-        const ready = await ensureStorageBucket()
-        setIsBucketReady(ready)
-        if (!ready) {
-          setError("Storage is not available. Please try again later.")
+        const available = await checkStorageAvailability()
+        setIsStorageAvailable(available)
+        if (!available) {
+          setError("Storage is not available. Please contact support.")
         }
       } catch (err) {
-        console.error("Error checking storage bucket:", err)
-        setError("Failed to initialize storage. Please try again later.")
+        console.error("Error checking storage:", err)
+        setError("Failed to connect to storage. Please try again later.")
+        setIsStorageAvailable(false)
+      } finally {
+        setIsCheckingStorage(false)
       }
     }
 
-    checkBucket()
+    checkStorage()
   }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,10 +64,10 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
     e.target.value = ""
 
     // Check if storage is ready
-    if (!isBucketReady) {
+    if (!isStorageAvailable) {
       toast({
         title: "Storage not available",
-        description: "The file storage system is not available. Please try again later.",
+        description: "The file storage system is not available. Please contact support.",
         variant: "destructive",
       })
       return
@@ -201,7 +206,9 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
         <label
           htmlFor="file-upload"
           className={`flex items-center justify-center w-full p-4 border-2 border-dashed border-[#4A5568] rounded-md cursor-pointer hover:bg-[#1E2533] transition-colors ${
-            uploadedFiles.length >= MAX_FILES || isUploading || !isBucketReady ? "opacity-50 cursor-not-allowed" : ""
+            uploadedFiles.length >= MAX_FILES || isUploading || !isStorageAvailable || isCheckingStorage
+              ? "opacity-50 cursor-not-allowed"
+              : ""
           }`}
         >
           <input
@@ -210,21 +217,27 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
             className="hidden"
             accept={ALLOWED_FILE_TYPES.join(",")}
             onChange={handleFileChange}
-            disabled={uploadedFiles.length >= MAX_FILES || isUploading || !isBucketReady}
+            disabled={uploadedFiles.length >= MAX_FILES || isUploading || !isStorageAvailable || isCheckingStorage}
           />
           <div className="flex flex-col items-center">
             {isUploading ? (
               <Loader2 className="h-8 w-8 text-gray-400 animate-spin mb-2" />
+            ) : isCheckingStorage ? (
+              <Loader2 className="h-8 w-8 text-gray-400 animate-spin mb-2" />
             ) : (
               <Upload className="h-8 w-8 text-gray-400 mb-2" />
             )}
-            <span className="text-[#E53E3E] font-medium">{isUploading ? "Uploading..." : "Upload screenshot"}</span>
+            <span className="text-[#E53E3E] font-medium">
+              {isUploading ? "Uploading..." : isCheckingStorage ? "Checking storage..." : "Upload screenshot"}
+            </span>
             <p className="text-gray-400 text-sm mt-1">
               {uploadedFiles.length >= MAX_FILES
                 ? "Maximum number of files reached"
-                : !isBucketReady
+                : !isStorageAvailable
                   ? "Storage not available"
-                  : "Click to browse or drag and drop"}
+                  : isCheckingStorage
+                    ? "Please wait..."
+                    : "Click to browse or drag and drop"}
             </p>
           </div>
         </label>

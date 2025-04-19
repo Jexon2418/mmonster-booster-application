@@ -8,6 +8,9 @@ export const MAX_FILES = 5
 // Allowed file types
 export const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
+// Bucket name - this should already exist in your Supabase project
+const BUCKET_NAME = "screenshots"
+
 export type UploadedFile = {
   path: string
   filename: string
@@ -37,12 +40,12 @@ export async function uploadFile(file: File, discordId: string): Promise<Uploade
     const fileExt = file.name.split(".").pop()
     const uniqueId = uuidv4()
     const uniqueFilename = `${uniqueId}.${fileExt}`
-    const filePath = `boosting-experience-screenshots/${discordId}/${uniqueFilename}`
+    const filePath = `boosting-experience/${discordId}/${uniqueFilename}`
 
     console.log("Uploading file to path:", filePath)
 
     // Upload the file
-    const { data, error } = await supabase.storage.from("booster-applications").upload(filePath, file, {
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
       cacheControl: "3600",
       upsert: false,
     })
@@ -59,7 +62,7 @@ export async function uploadFile(file: File, discordId: string): Promise<Uploade
     console.log("File uploaded successfully:", data.path)
 
     // Get the public URL for the uploaded file
-    const { data: urlData } = supabase.storage.from("booster-applications").getPublicUrl(data.path)
+    const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path)
 
     return {
       path: data.path,
@@ -81,7 +84,7 @@ export async function deleteFile(path: string): Promise<boolean> {
   try {
     console.log("Attempting to delete file:", path)
 
-    const { error } = await supabase.storage.from("booster-applications").remove([path])
+    const { error } = await supabase.storage.from(BUCKET_NAME).remove([path])
 
     if (error) {
       console.error("Error deleting file:", error)
@@ -103,9 +106,7 @@ export async function listUserFiles(discordId: string): Promise<UploadedFile[]> 
   try {
     console.log("Listing files for user:", discordId)
 
-    const { data, error } = await supabase.storage
-      .from("booster-applications")
-      .list(`boosting-experience-screenshots/${discordId}`)
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(`boosting-experience/${discordId}`)
 
     if (error) {
       console.error("Error listing files:", error)
@@ -121,10 +122,10 @@ export async function listUserFiles(discordId: string): Promise<UploadedFile[]> 
 
     return Promise.all(
       data.map(async (item) => {
-        const path = `boosting-experience-screenshots/${discordId}/${item.name}`
+        const path = `boosting-experience/${discordId}/${item.name}`
 
         // Get the public URL for each file
-        const { data: urlData } = supabase.storage.from("booster-applications").getPublicUrl(path)
+        const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path)
 
         return {
           path: path,
@@ -142,40 +143,29 @@ export async function listUserFiles(discordId: string): Promise<UploadedFile[]> 
 }
 
 /**
- * Check if the Supabase bucket exists and create it if it doesn't
+ * Check if the Supabase storage is available
  */
-export async function ensureStorageBucket(): Promise<boolean> {
+export async function checkStorageAvailability(): Promise<boolean> {
   try {
-    // Check if the bucket exists
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+    // Try to list buckets as a simple availability check
+    const { data, error } = await supabase.storage.listBuckets()
 
-    if (listError) {
-      console.error("Error listing buckets:", listError)
+    if (error) {
+      console.error("Storage availability check failed:", error)
       return false
     }
 
-    const bucketExists = buckets.some((bucket) => bucket.name === "booster-applications")
+    // Check if our bucket exists in the list
+    const bucketExists = data.some((bucket) => bucket.name === BUCKET_NAME)
 
     if (!bucketExists) {
-      console.log("Creating booster-applications bucket")
-      const { error: createError } = await supabase.storage.createBucket("booster-applications", {
-        public: true,
-        fileSizeLimit: MAX_FILE_SIZE,
-      })
-
-      if (createError) {
-        console.error("Error creating bucket:", createError)
-        return false
-      }
-
-      console.log("Bucket created successfully")
-    } else {
-      console.log("Bucket already exists")
+      console.error(`Bucket "${BUCKET_NAME}" does not exist`)
+      return false
     }
 
     return true
   } catch (error) {
-    console.error("Error in ensureStorageBucket:", error)
+    console.error("Error checking storage availability:", error)
     return false
   }
 }
