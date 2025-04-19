@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { DISCORD_CONFIG, WEBHOOK_CONFIG } from "@/lib/env"
+import { DISCORD_CONFIG } from "@/lib/env"
 
 export async function GET(request: Request) {
   // Get the code from the URL query parameters
@@ -64,47 +64,49 @@ export async function GET(request: Request) {
       ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
       : `https://cdn.discordapp.com/embed/avatars/${Number.parseInt(userData.discriminator || "0") % 5}.png`
 
-    // Send webhook with Discord user data (non-blocking)
-    try {
-      // Get webhook URL from environment variables
-      const webhookUrl = WEBHOOK_CONFIG.DISCORD_AUTH
+    // Send webhook with Discord user data
+    console.log("Preparing to send Discord webhook...")
 
-      if (!webhookUrl) {
-        console.error("Discord auth webhook URL not configured in environment variables")
-      } else {
-        // Log the webhook URL in development mode
-        if (process.env.NODE_ENV === "development") {
-          console.log(`Sending Discord auth webhook to: ${webhookUrl}`)
-        }
+    // Hardcode the webhook URL for now to ensure it works
+    const webhookUrl = "https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9"
 
-        // Use a non-blocking fetch to send the webhook
-        fetch(webhookUrl, {
+    if (!webhookUrl) {
+      console.error("Discord auth webhook URL is missing or undefined")
+    } else {
+      // Prepare the payload
+      const webhookPayload = {
+        discord_id: userData.id,
+        discord_username: userData.username,
+        discord_email: userData.email || "",
+        discord_avatar_url: avatarUrl,
+      }
+
+      // Debug log the webhook details
+      console.log(`Sending webhook to URL: ${webhookUrl}`)
+      console.log("Webhook payload:", JSON.stringify(webhookPayload))
+
+      // Send the webhook
+      try {
+        const webhookResponse = await fetch(webhookUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            discord_id: userData.id,
-            discord_username: userData.username,
-            discord_email: userData.email || "",
-            discord_avatar_url: avatarUrl,
-          }),
-        }).catch((webhookError) => {
-          // Catch any errors from the fetch itself
-          console.error("Discord webhook request failed:", webhookError)
+          body: JSON.stringify(webhookPayload),
         })
 
-        console.log("Discord webhook sent (non-blocking)")
+        if (webhookResponse.ok) {
+          console.log("Discord webhook sent successfully:", await webhookResponse.text())
+        } else {
+          console.error("Discord webhook request failed with status:", webhookResponse.status)
+          console.error("Response:", await webhookResponse.text())
+        }
+      } catch (webhookError) {
+        console.error("Error sending Discord webhook:", webhookError)
       }
-    } catch (webhookError) {
-      // This catch block handles any synchronous errors in the try block
-      console.error("Error preparing Discord webhook:", webhookError)
-      // Continue with normal flow - don't let webhook errors affect the user
     }
 
-    // Continue with the normal flow - format user data and redirect
-
-    // Format the user data
+    // Format the user data for the redirect
     const formattedUserData = {
       id: userData.id,
       username: userData.username,
