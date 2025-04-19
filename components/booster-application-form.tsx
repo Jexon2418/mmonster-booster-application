@@ -127,7 +127,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     [isInitialized],
   )
 
-  // Improved loadDraft function with better state management
+  // Modify the loadDraft function to remove the step setting logic
   const loadDraft = useCallback(
     async (discordId: string) => {
       if (!discordId || draftLoadedRef.current) return
@@ -136,6 +136,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       try {
         const draftData = await loadDraftFromSupabase(discordId)
 
+        // Update the toast message to be clearer about how to proceed
         if (draftData) {
           // Mark draft as loaded to prevent duplicate loads
           draftLoadedRef.current = true
@@ -156,31 +157,11 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
           toast({
             title: "Draft Loaded",
-            description: "Your previous application progress has been restored.",
+            description:
+              "Your previous answers have been loaded. Please click through each step to continue your application.",
           })
 
-          // If the draft has data beyond step 3 and we haven't set the step yet,
-          // move to the appropriate step
-          if (
-            !stepSetFromDraftRef.current &&
-            (draftData.classification || draftData.services?.length > 0 || draftData.games?.length > 0)
-          ) {
-            // Determine the furthest step the user has completed
-            let furthestStep = 2
-
-            if (draftData.classification) furthestStep = Math.max(furthestStep, 3)
-            if (draftData.services?.length > 0) furthestStep = Math.max(furthestStep, 4)
-            if (draftData.games?.length > 0) furthestStep = Math.max(furthestStep, 5)
-            if (draftData.experience) furthestStep = Math.max(furthestStep, 6)
-            if (draftData.discordId || draftData.telegram) furthestStep = Math.max(furthestStep, 7)
-            if (draftData.fullName || draftData.country) furthestStep = Math.max(furthestStep, 8)
-            if (draftData.joinedDiscord) furthestStep = Math.max(furthestStep, 9)
-            if (draftData.acceptCrypto) furthestStep = Math.max(furthestStep, 10)
-
-            // Set the step and mark it as set from draft
-            setCurrentStep(furthestStep)
-            stepSetFromDraftRef.current = true
-          }
+          // We no longer automatically jump to the furthest completed step
         }
       } catch (error) {
         console.error("Error loading draft:", error)
@@ -213,7 +194,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     }
   }, [currentStep])
 
-  // Separate useEffect for handling Discord OAuth callback
+  // Update the useEffect for handling Discord OAuth callback
+  // to always set the step to 2 after successful authentication
   useEffect(() => {
     // Check for discord_user param in URL
     const discordUserParam = searchParams.get("discord_user")
@@ -230,7 +212,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           discordUser: discordUser,
         })
 
-        // Move to Discord verification success step
+        // Always move to Discord verification success step (step 2)
+        // regardless of any draft data
         console.log("Setting step to Discord Verification Success (2) due to discord_user param")
         setCurrentStep(2)
 
@@ -244,7 +227,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     }
   }, [searchParams, updateFormData])
 
-  // Separate useEffect for initializing the form with existing session
+  // Update the useEffect for initializing the form with existing session
+  // to always set the step to 2 (Discord verification success) after authentication
   useEffect(() => {
     // Only run this once
     if (initRef.current) return
@@ -264,13 +248,12 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
               discordUser: savedDiscordUser,
             })
 
-            // Load draft data if available
+            // Load draft data if available, but don't change the step based on it
             loadDraft(savedDiscordUser.id)
 
-            // If we're on step 1, move to step 2 (Discord verification success)
-            if (currentStep <= 1) {
-              setCurrentStep(2)
-            }
+            // Always set to step 2 (Discord verification success) after authentication
+            // regardless of draft data
+            setCurrentStep(2)
           } else {
             // If session is invalid, clear the user data
             clearDiscordUser()
@@ -297,7 +280,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         setCurrentStep(1)
       }
     }
-  }, [initialDiscordCallback, updateFormData, loadDraft, currentStep, toast])
+  }, [initialDiscordCallback, updateFormData, loadDraft, toast])
 
   // Add a logout handler function
   const handleLogout = useCallback(() => {

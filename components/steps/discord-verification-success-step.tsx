@@ -76,10 +76,17 @@ export function DiscordVerificationSuccessStep({
             and communicate with you throughout the application process.
           </p>
 
-          {isLoadingDraft && (
+          {isLoadingDraft ? (
             <div className="mt-4 flex items-center text-gray-400">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span>Checking for saved application progress...</span>
+              <span>Loading your saved progress...</span>
+            </div>
+          ) : (
+            <div className="mt-4 bg-[#2D3748]/50 p-3 rounded-md border border-[#4A5568]/50">
+              <p className="text-gray-300 text-sm">
+                <span className="font-medium text-white">Note:</span> If you have a previously saved application, your
+                answers have been loaded. Please click "Continue" to proceed through each step of the form.
+              </p>
             </div>
           )}
         </div>
