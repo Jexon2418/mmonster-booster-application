@@ -51,13 +51,33 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       window.history.replaceState({}, "", url)
     }
 
-    // Удаляем обработку discordUserParam, так как она теперь в основном компоненте формы
-  }, [errorParam])
+    // Обрабатываем параметр discord_user здесь, чтобы не зависеть от родительского компонента
+    if (discordUserParam) {
+      try {
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as FormData["discordUser"]
+
+        // Обновляем данные формы с информацией о Discord пользователе
+        updateFormData({
+          discordId: discordUser?.fullDiscordTag || "",
+          discordUser: discordUser,
+        })
+
+        // Очищаем URL от параметров
+        const url = new URL(window.location.href)
+        url.searchParams.delete("discord_user")
+        window.history.replaceState({}, "", url)
+
+        // Автоматически переходим на следующий шаг (Discord verification success)
+        onContinue()
+      } catch (e) {
+        console.error("Error parsing Discord user data:", e)
+        setError("Failed to process Discord authentication data")
+      }
+    }
+  }, [discordUserParam, errorParam, updateFormData, onContinue])
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
-      // Сохраняем информацию о том, что мы находимся на шаге аутентификации
-      sessionStorage.setItem("currentFormStep", "2")
       // Сохраняем текущий URL для возврата после аутентификации
       sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
       window.location.href = discordAuthUrl

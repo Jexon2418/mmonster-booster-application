@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
 import { WelcomeStep } from "./steps/welcome-step"
 import { DiscordAuthStep } from "./steps/discord-auth-step"
 import { DiscordVerificationSuccessStep } from "./steps/discord-verification-success-step"
@@ -15,7 +15,6 @@ import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
 import { submitBoosterApplication } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { useSearchParams } from "next/navigation"
 
 export type DiscordUser = {
   id: string
@@ -70,7 +69,6 @@ export default function BoosterApplicationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const { toast } = useToast()
-  const searchParams = useSearchParams()
 
   const updateFormData = useCallback((data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }))
@@ -90,42 +88,7 @@ export default function BoosterApplicationForm() {
     }
   }
 
-  // Добавляем этот useEffect для восстановления шага после аутентификации
-  useEffect(() => {
-    // Проверяем, есть ли параметр discord_user в URL
-    const discordUserParam = searchParams.get("discord_user")
-
-    if (discordUserParam) {
-      try {
-        // Если есть параметр discord_user, значит пользователь вернулся после аутентификации
-        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
-
-        // Обновляем данные формы с информацией о Discord пользователе
-        updateFormData({
-          discordId: discordUser.fullDiscordTag,
-          discordUser: discordUser,
-        })
-
-        // Устанавливаем шаг на 3 (discord-verification-success)
-        setCurrentStep(3)
-
-        // Очищаем URL от параметров
-        const url = new URL(window.location.href)
-        url.searchParams.delete("discord_user")
-        window.history.replaceState({}, "", url)
-      } catch (e) {
-        console.error("Error parsing Discord user data:", e)
-      }
-    } else {
-      // Проверяем, был ли сохранен шаг в sessionStorage
-      const savedStep = sessionStorage.getItem("currentFormStep")
-      if (savedStep) {
-        setCurrentStep(Number.parseInt(savedStep))
-        // Очищаем сохраненный шаг
-        sessionStorage.removeItem("currentFormStep")
-      }
-    }
-  }, [searchParams, updateFormData])
+  // Удаляем useEffect для обработки параметров URL, так как эта логика теперь в компоненте DiscordAuthStep
 
   const handleSubmit = async () => {
     try {
