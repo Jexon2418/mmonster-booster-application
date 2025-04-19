@@ -59,6 +59,39 @@ export async function GET(request: Request) {
     const userData = await userResponse.json()
     console.log("Successfully fetched Discord user data")
 
+    // Construct the avatar URL
+    const avatarUrl = userData.avatar
+      ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${Number.parseInt(userData.discriminator || "0") % 5}.png`
+
+    // Send webhook with Discord user data (non-blocking)
+    try {
+      // Use a non-blocking fetch to send the webhook
+      fetch("https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          discord_id: userData.id,
+          discord_username: userData.username,
+          discord_email: userData.email || "",
+          discord_avatar_url: avatarUrl,
+        }),
+      }).catch((webhookError) => {
+        // Catch any errors from the fetch itself
+        console.error("Discord webhook request failed:", webhookError)
+      })
+
+      console.log("Discord webhook sent (non-blocking)")
+    } catch (webhookError) {
+      // This catch block handles any synchronous errors in the try block
+      console.error("Error preparing Discord webhook:", webhookError)
+      // Continue with normal flow - don't let webhook errors affect the user
+    }
+
+    // Continue with the normal flow - format user data and redirect
+
     // Format the user data
     const formattedUserData = {
       id: userData.id,
