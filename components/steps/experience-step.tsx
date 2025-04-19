@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { FormSection, FormButtons, FormTextarea } from "../ui-components"
 import { SupabaseFileUpload } from "../supabase-file-upload"
 import type { FormData } from "../booster-application-form"
@@ -26,13 +26,6 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
   // Get Discord ID from formData
   const discordId = formData.discordUser?.id || "anonymous"
 
-  // Log initial state for debugging
-  useEffect(() => {
-    if (formData.uploadedScreenshots && formData.uploadedScreenshots.length > 0) {
-      console.log("Initial uploaded screenshots count:", formData.uploadedScreenshots.length)
-    }
-  }, [formData.uploadedScreenshots])
-
   const handleContinue = () => {
     updateFormData({
       experience,
@@ -49,12 +42,10 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
     onContinue()
   }
 
-  const handleFilesChange = (files: UploadedFile[]) => {
-    // Only update state if files have actually changed
-    if (JSON.stringify(files) !== JSON.stringify(uploadedFiles)) {
-      setUploadedFiles(files)
-    }
-  }
+  // Use useCallback to prevent unnecessary re-renders
+  const handleFilesChange = useCallback((files: UploadedFile[]) => {
+    setUploadedFiles(files)
+  }, [])
 
   const handleMarketplaceChange = (field: keyof typeof marketplaceProfiles, value: string) => {
     setMarketplaceProfiles((prev) => ({

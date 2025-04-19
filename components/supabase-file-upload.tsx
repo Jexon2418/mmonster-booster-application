@@ -30,73 +30,77 @@ export function SupabaseFileUpload({
   maxFiles = 5,
   maxSizeMB = 3,
 }: SupabaseFileUploadProps) {
-  // Use a ref to track if this is the first render
-  const isFirstRender = useRef(true)
+  // Use a ref to track if we've initialized
+  const hasInitialized = useRef(false)
 
-  // Filter out any invalid initial files (those without path or with empty values)
+  // Filter out any invalid initial files
   const validInitialFiles = initialFiles?.filter((file) => file && file.path && file.name && file.size) || []
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isProcessingInitial, setIsProcessingInitial] = useState(validInitialFiles.length > 0)
+  const [isLoading, setIsLoading] = useState(validInitialFiles.length > 0)
   const maxSizeBytes = maxSizeMB * 1024 * 1024 // Convert MB to bytes
 
-  // Process initial files only once on component mount
+  // Initialize once on mount
   useEffect(() => {
-    const processInitialFiles = async () => {
+    if (hasInitialized.current) return
+
+    const initializeFiles = async () => {
       if (!validInitialFiles.length) {
-        setIsProcessingInitial(false)
+        setIsLoading(false)
+        hasInitialized.current = true
         return
       }
 
       try {
-        const updatedFiles = await Promise.all(
-          validInitialFiles.map(async (file) => {
-            // Always regenerate the public URL to ensure it's fresh
-            try {
-              const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
+        // Process files in batches to avoid freezing
+        const batchSize = 2
+        const processedFiles: UploadedFile[] = []
 
-              // Add a cache-busting parameter to the URL to prevent caching issues
-              const cacheBuster = `?t=${Date.now()}`
-              const publicUrl = `${data.publicUrl}${cacheBuster}`
+        for (let i = 0; i < validInitialFiles.length; i += batchSize) {
+          const batch = validInitialFiles.slice(i, i + batchSize)
 
-              return {
-                ...file,
-                url: publicUrl,
+          // Process each batch
+          const batchResults = await Promise.all(
+            batch.map(async (file) => {
+              try {
+                const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
+                return {
+                  ...file,
+                  url: data.publicUrl,
+                }
+              } catch (error) {
+                console.error("Error generating URL for file:", file.path)
+                return null
               }
-            } catch (error) {
-              console.error("Error generating public URL for file:", file.path, error)
-              return file
-            }
-          }),
-        )
+            }),
+          )
 
-        // Only update state if there are valid files with URLs
-        setUploadedFiles(updatedFiles)
+          // Add valid results to processed files
+          processedFiles.push(...(batchResults.filter(Boolean) as UploadedFile[]))
+
+          // Small delay to prevent UI freezing
+          await new Promise((resolve) => setTimeout(resolve, 10))
+        }
+
+        setUploadedFiles(processedFiles)
       } catch (error) {
-        console.error("Error processing initial files:", error)
+        console.error("Error initializing files:", error)
       } finally {
-        setIsProcessingInitial(false)
+        setIsLoading(false)
+        hasInitialized.current = true
       }
     }
 
-    processInitialFiles()
-  }, [validInitialFiles]) // Only depend on validInitialFiles
+    initializeFiles()
+  }, [validInitialFiles])
 
-  // Notify parent component when files change, but avoid infinite loops
+  // Notify parent when files change, but only after initialization
   useEffect(() => {
-    // Skip the first render to avoid unnecessary callbacks
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-      return
-    }
-
-    // Only call onFilesChange when we're not processing initial files
-    if (!isProcessingInitial) {
-      onFilesChange(uploadedFiles)
-    }
-  }, [uploadedFiles, onFilesChange, isProcessingInitial])
+    if (!hasInitialized.current || isLoading) return
+    onFilesChange(uploadedFiles)
+  }, [uploadedFiles, onFilesChange, isLoading])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -113,6 +117,7 @@ export function SupabaseFileUpload({
     const newFiles: UploadedFile[] = []
     const filesArray = Array.from(e.target.files)
 
+    // Process files one by one to avoid freezing
     for (const file of filesArray) {
       // Check file size
       if (file.size > maxSizeBytes) {
@@ -121,13 +126,11 @@ export function SupabaseFileUpload({
       }
 
       try {
-        // Generate a unique filename to avoid conflicts
+        // Generate a unique filename
         const timestamp = new Date().getTime()
         const randomString = Math.random().toString(36).substring(2, 10)
         const fileExtension = file.name.split(".").pop()
         const fileName = `${timestamp}-${randomString}.${fileExtension}`
-
-        // Create the file path with Discord ID as folder
         const filePath = `${discordId}/${fileName}`
 
         // Upload file to Supabase Storage
@@ -138,37 +141,34 @@ export function SupabaseFileUpload({
 
         if (error) throw error
 
-        // Get the public URL for the file
+        // Get the public URL
         const { data: urlData } = supabase.storage.from("user-screenshots").getPublicUrl(filePath)
 
         if (!urlData || !urlData.publicUrl) {
-          throw new Error("Failed to generate public URL for uploaded file")
+          throw new Error("Failed to generate public URL")
         }
 
-        // Add a cache-busting parameter to the URL
-        const cacheBuster = `?t=${Date.now()}`
-        const publicUrl = `${urlData.publicUrl}${cacheBuster}`
-
         newFiles.push({
-          url: publicUrl,
+          url: urlData.publicUrl,
           path: filePath,
           name: file.name,
           size: file.size,
         })
+
+        // Small delay to prevent UI freezing
+        await new Promise((resolve) => setTimeout(resolve, 10))
       } catch (error) {
         console.error("Error uploading file:", error)
         setError("Failed to upload file. Please try again.")
       }
     }
 
-    // Only update state if we have new files
+    // Update state with new files
     if (newFiles.length > 0) {
       setUploadedFiles((prev) => [...prev, ...newFiles])
     }
 
     setIsUploading(false)
-
-    // Reset the input value to allow uploading the same file again
     e.target.value = ""
   }
 
@@ -231,17 +231,10 @@ export function SupabaseFileUpload({
         </label>
       </div>
 
-      {isUploading && (
+      {(isUploading || isLoading) && (
         <div className="flex items-center justify-center p-4">
           <Loader2 className="h-6 w-6 animate-spin text-[#E53E3E]" />
-          <span className="ml-2 text-gray-400">Uploading...</span>
-        </div>
-      )}
-
-      {isProcessingInitial && (
-        <div className="flex items-center justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-[#E53E3E]" />
-          <span className="ml-2 text-gray-400">Loading saved screenshots...</span>
+          <span className="ml-2 text-gray-400">{isUploading ? "Uploading..." : "Loading saved screenshots..."}</span>
         </div>
       )}
 
@@ -250,24 +243,17 @@ export function SupabaseFileUpload({
           {uploadedFiles.map((file, index) => (
             <div key={`${file.path}-${index}`} className="relative group">
               <div className="relative h-32 w-full rounded-md overflow-hidden border border-[#4A5568] bg-[#1A202C]">
-                {file.url ? (
-                  <Image
-                    src={file.url || "/placeholder.svg"}
-                    alt={file.name}
-                    fill
-                    className="object-cover"
-                    onError={(e) => {
-                      console.error("Error loading image:", file.url)
-                      // Set fallback image on error
-                      e.currentTarget.src = "/placeholder.svg"
-                    }}
-                    unoptimized // Bypass Next.js image optimization to avoid CORS issues
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <AlertCircle className="h-8 w-8 text-gray-500" />
-                  </div>
-                )}
+                <Image
+                  src={file.url || "/placeholder.svg"}
+                  alt={file.name}
+                  fill
+                  className="object-cover"
+                  onError={() => {
+                    console.error("Error loading image:", file.url)
+                  }}
+                  unoptimized
+                  loading="lazy"
+                />
               </div>
               <button
                 type="button"
