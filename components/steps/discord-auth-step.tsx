@@ -29,6 +29,7 @@ export function DiscordAuthStep({
   const [configError, setConfigError] = useState<boolean>(false)
   const [webhookTestResult, setWebhookTestResult] = useState<{ success: boolean; message: string } | null>(null)
   const [isTestingWebhook, setIsTestingWebhook] = useState(false)
+  const [redirectUri, setRedirectUri] = useState<string>("")
   const searchParams = useSearchParams()
 
   // Get Discord user data from URL if available
@@ -95,6 +96,9 @@ export function DiscordAuthStep({
         if (!clientId || !redirectUri) {
           throw new Error("Missing Discord configuration. Please check your environment variables.")
         }
+
+        setRedirectUri(redirectUri)
+        console.log("Discord redirect URI:", redirectUri)
 
         const state = Math.random().toString(36).substring(2, 15)
         const scopes = ["identify", "email"].join(" ")
@@ -240,6 +244,11 @@ export function DiscordAuthStep({
             </>
           )}
         </button>
+      </div>
+
+      {/* Display the redirect URI for debugging */}
+      <div className="mt-4 p-3 bg-gray-800 rounded-md text-xs text-gray-400 overflow-auto">
+        <p>Redirect URI: {redirectUri}</p>
       </div>
 
       {/* Webhook Test Section */}

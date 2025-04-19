@@ -29,6 +29,9 @@ export async function getDiscordAuthUrl() {
   // Add a state parameter for CSRF protection
   const state = Math.random().toString(36).substring(2, 15)
 
+  // Log the redirect URI being used
+  console.log("Using Discord redirect URI:", DISCORD_CONFIG.REDIRECT_URI)
+
   const params = new URLSearchParams({
     client_id: DISCORD_CONFIG.CLIENT_ID!,
     redirect_uri: DISCORD_CONFIG.REDIRECT_URI!,

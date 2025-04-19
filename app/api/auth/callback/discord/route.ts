@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server"
 import { DISCORD_CONFIG } from "@/lib/env"
 
-// Log that this route is being accessed
-console.log("Discord callback route accessed (App Router)")
-
 export async function GET(request: Request) {
-  console.log("Processing Discord callback in App Router")
+  console.log("=== DISCORD CALLBACK STARTED (App Router - API Route) ===")
+  console.log("Route: /api/auth/callback/discord")
+  console.log("Request URL:", request.url)
 
   // Get the code from the URL query parameters
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
-
-  console.log(`Received code: ${code ? "yes" : "no"}, state: ${state ? "yes" : "no"}`)
 
   // Get the host from the request headers
   const host = request.headers.get("host") || ""
@@ -68,9 +64,64 @@ export async function GET(request: Request) {
     }
 
     const userData = await userResponse.json()
-    console.log("Successfully fetched Discord user data:", userData.username)
+    console.log("Fetched user info:", JSON.stringify(userData))
 
-    // Format the user data
+    // WEBHOOK SECTION - Send webhook with Discord user data
+    console.log("=== SENDING WEBHOOK - START ===")
+
+    // Get webhook URL from environment variable or use hardcoded fallback
+    const webhookUrl =
+      process.env.WEBHOOK_DISCORD_AUTH ||
+      "https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9"
+    console.log(`Webhook URL: ${webhookUrl}`)
+
+    // Construct the avatar URL
+    const avatarUrl = userData.avatar
+      ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
+      : `https://cdn.discordapp.com/embed/avatars/${Number.parseInt(userData.discriminator || "0") % 5}.png`
+
+    // Prepare the payload
+    const webhookPayload = {
+      discord_id: userData.id,
+      discord_username: userData.username,
+      discord_email: userData.email || "",
+      discord_avatar_url: avatarUrl || "",
+      timestamp: new Date().toISOString(),
+      source: "api_route_callback",
+    }
+
+    console.log("Webhook payload:", JSON.stringify(webhookPayload))
+
+    // Send the webhook in a separate try-catch to not affect the main flow
+    try {
+      console.log("Sending webhook request...")
+
+      // Use a simple fetch with no fancy options
+      const webhookResponse = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(webhookPayload),
+      })
+
+      const responseText = await webhookResponse.text()
+
+      if (webhookResponse.ok) {
+        console.log(`Webhook sent successfully! Status: ${webhookResponse.status}`)
+        console.log(`Response: ${responseText}`)
+      } else {
+        console.error(`Webhook failed! Status: ${webhookResponse.status}`)
+        console.error(`Error response: ${responseText}`)
+      }
+    } catch (webhookError) {
+      console.error("Webhook error:", webhookError)
+    }
+
+    console.log("=== SENDING WEBHOOK - END ===")
+    // END WEBHOOK SECTION
+
+    // Format the user data for the redirect
     const formattedUserData = {
       id: userData.id,
       username: userData.username,
@@ -83,6 +134,9 @@ export async function GET(request: Request) {
     // Encode the user data to pass it in the URL
     const encodedUserData = encodeURIComponent(JSON.stringify(formattedUserData))
     console.log("Redirecting with user data...")
+
+    // Add a small delay to ensure webhook has time to complete
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     // Redirect back to the application with the user data
     return NextResponse.redirect(`${baseUrl}/?discord_user=${encodedUserData}`)
