@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { WelcomeStep } from "./steps/welcome-step"
 import { DiscordAuthStep } from "./steps/discord-auth-step"
+import { DiscordVerificationSuccessStep } from "./steps/discord-verification-success-step"
 import { ClassificationStep } from "./steps/classification-step"
 import { ServicesStep } from "./steps/services-step"
 import { GamesStep } from "./steps/games-step"
@@ -14,6 +15,15 @@ import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
 import { submitBoosterApplication } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+
+export type DiscordUser = {
+  id: string
+  username: string
+  discriminator: string
+  avatar: string | null
+  email: string | null
+  fullDiscordTag: string
+}
 
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
@@ -32,6 +42,7 @@ export type FormData = {
   cryptoWallet: string
   submissionDate?: string
   status?: "pending" | "approved" | "rejected"
+  discordUser?: DiscordUser | null
 }
 
 const initialFormData: FormData = {
@@ -49,6 +60,7 @@ const initialFormData: FormData = {
   joinedDiscord: false,
   acceptCrypto: false,
   cryptoWallet: "",
+  discordUser: null,
 }
 
 export default function BoosterApplicationForm() {
@@ -63,7 +75,7 @@ export default function BoosterApplicationForm() {
   }
 
   const nextStep = () => {
-    if (currentStep < 10) {
+    if (currentStep < 11) {
       setCurrentStep(currentStep + 1)
       window.scrollTo(0, 0)
     }
@@ -80,23 +92,21 @@ export default function BoosterApplicationForm() {
     try {
       setIsSubmitting(true)
 
-      // Подготовка данных для отправки
+      // Prepare data for submission
       const submissionData = {
         ...formData,
         submissionDate: new Date().toISOString(),
         status: "pending",
       }
 
-      // Если есть скриншоты, нужно их обработать отдельно
-      // В этом примере мы просто добавляем имена файлов, но в реальном приложении
-      // вам нужно будет загрузить файлы на сервер или в облачное хранилище
+      // If there are screenshots, handle them separately
       if (submissionData.screenshots.length > 0) {
         submissionData.screenshotNames = submissionData.screenshots.map((file) => file.name)
-        // Удаляем сами файлы из данных, так как их нельзя сериализовать в JSON
+        // Remove the actual files as they can't be serialized to JSON
         delete submissionData.screenshots
       }
 
-      // Отправка данных в n8n
+      // Send data to n8n
       await submitBoosterApplication(submissionData)
 
       setIsSubmitted(true)
@@ -105,7 +115,7 @@ export default function BoosterApplicationForm() {
         description: "Your application has been successfully submitted. We'll review it shortly.",
       })
 
-      // Сбросить форму или показать страницу успеха
+      // Reset form or show success page
       setFormData(initialFormData)
       setCurrentStep(1)
     } catch (error) {
@@ -134,6 +144,8 @@ export default function BoosterApplicationForm() {
           />
         )
       case 3:
+        return <DiscordVerificationSuccessStep onContinue={nextStep} onBack={prevStep} formData={formData} />
+      case 4:
         return (
           <ClassificationStep
             formData={formData}
@@ -142,25 +154,25 @@ export default function BoosterApplicationForm() {
             onBack={prevStep}
           />
         )
-      case 4:
+      case 5:
         return (
           <ServicesStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 5:
-        return <GamesStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
       case 6:
+        return <GamesStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
+      case 7:
         return (
           <ExperienceStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 7:
+      case 8:
         return (
           <ContactStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 8:
+      case 9:
         return (
           <PersonalStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 9:
+      case 10:
         return (
           <DiscordServerStep
             formData={formData}
@@ -169,7 +181,7 @@ export default function BoosterApplicationForm() {
             onBack={prevStep}
           />
         )
-      case 10:
+      case 11:
         return (
           <CryptoStep
             formData={formData}
@@ -186,7 +198,7 @@ export default function BoosterApplicationForm() {
 
   return (
     <div className="w-full max-w-3xl px-4">
-      <StepIndicator currentStep={currentStep} totalSteps={10} />
+      <StepIndicator currentStep={currentStep} totalSteps={11} />
       <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">{renderStep()}</div>
     </div>
   )

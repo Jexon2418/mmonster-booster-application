@@ -6,8 +6,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
 
-  // Extract the base URL from the request
-  const baseUrl = new URL(request.url).origin
+  // Get the host from the request headers
+  const host = request.headers.get("host") || ""
+  const protocol = host.includes("localhost") || host.includes("0.0.0.0") ? "http" : "https"
+
+  // Construct the base URL
+  const baseUrl = `${protocol}://${host}`
 
   if (!code) {
     console.error("Missing authorization code from Discord")
@@ -59,7 +63,7 @@ export async function GET(request: Request) {
     const formattedUserData = {
       id: userData.id,
       username: userData.username,
-      discriminator: userData.discriminator,
+      discriminator: userData.discriminator || "0",
       avatar: userData.avatar,
       email: userData.email,
       fullDiscordTag: userData.discriminator ? `${userData.username}#${userData.discriminator}` : userData.username,

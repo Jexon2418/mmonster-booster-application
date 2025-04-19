@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react"
 import { FormSection, FormButtons, Alert } from "../ui-components"
 import { getDiscordAuthUrl } from "@/lib/discord-auth"
-import { useSearchParams, useRouter } from "next/navigation"
-import type { FormData } from "../booster-application-form"
+import { useSearchParams } from "next/navigation"
+import type { FormData, DiscordUser } from "../booster-application-form"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
@@ -19,7 +19,6 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
   const [error, setError] = useState<string | null>(null)
   const [configError, setConfigError] = useState<boolean>(false)
   const searchParams = useSearchParams()
-  const router = useRouter()
 
   // Get Discord user data from URL if available
   const discordUserParam = searchParams.get("discord_user")
@@ -55,12 +54,12 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     // Handle successful Discord authentication
     if (discordUserParam) {
       try {
-        const discordUser = JSON.parse(decodeURIComponent(discordUserParam))
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
 
         // Update form data with Discord user information
         updateFormData({
           discordId: discordUser.fullDiscordTag,
-          // You can store additional Discord user data if needed
+          discordUser: discordUser,
         })
 
         // Clean up the URL
@@ -68,7 +67,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
         url.searchParams.delete("discord_user")
         window.history.replaceState({}, "", url)
 
-        // Automatically proceed to the next step
+        // Automatically proceed to the next step (Discord verification success)
         onContinue()
       } catch (e) {
         console.error("Error parsing Discord user data:", e)
@@ -79,6 +78,8 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
+      // Store the current URL to return to after authentication
+      sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
       window.location.href = discordAuthUrl
     } else {
       setError("Discord authentication URL is not available. Please try again later.")
