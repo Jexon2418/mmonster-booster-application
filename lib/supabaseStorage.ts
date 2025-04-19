@@ -106,36 +106,45 @@ export async function listUserFiles(discordId: string): Promise<UploadedFile[]> 
   try {
     console.log("Listing files for user:", discordId)
 
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).list(`boosting-experience/${discordId}`)
+    // First check if the folder exists
+    const folderPath = `boosting-experience/${discordId}`
 
-    if (error) {
-      console.error("Error listing files:", error)
-      throw new Error(`Failed to list files: ${error.message}`)
-    }
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).list(folderPath)
 
-    if (!data) {
-      console.log("No files found for user")
+      if (error) {
+        // If there's an error, the folder might not exist yet, which is normal for new users
+        console.log(`Folder ${folderPath} might not exist yet:`, error.message)
+        return []
+      }
+
+      if (!data || data.length === 0) {
+        console.log("No files found for user")
+        return []
+      }
+
+      console.log("Files found:", data.length)
+
+      return Promise.all(
+        data.map(async (item) => {
+          const path = `${folderPath}/${item.name}`
+
+          // Get the public URL for each file
+          const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path)
+
+          return {
+            path: path,
+            filename: item.name,
+            size: item.metadata?.size || 0,
+            type: item.metadata?.mimetype || "",
+            url: urlData.publicUrl,
+          }
+        }),
+      )
+    } catch (innerError) {
+      console.error("Error listing files in folder:", innerError)
       return []
     }
-
-    console.log("Files found:", data.length)
-
-    return Promise.all(
-      data.map(async (item) => {
-        const path = `boosting-experience/${discordId}/${item.name}`
-
-        // Get the public URL for each file
-        const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path)
-
-        return {
-          path: path,
-          filename: item.name,
-          size: item.metadata?.size || 0,
-          type: item.metadata?.mimetype || "",
-          url: urlData.publicUrl,
-        }
-      }),
-    )
   } catch (error) {
     console.error("Error in listUserFiles:", error)
     return []
@@ -143,27 +152,38 @@ export async function listUserFiles(discordId: string): Promise<UploadedFile[]> 
 }
 
 /**
- * Check if the Supabase storage is available
+ * Check if the Supabase storage is available and the bucket exists
  */
 export async function checkStorageAvailability(): Promise<boolean> {
   try {
-    // Try to list buckets as a simple availability check
-    const { data, error } = await supabase.storage.listBuckets()
+    console.log("Checking storage availability...")
 
-    if (error) {
-      console.error("Storage availability check failed:", error)
+    // First, check if we can connect to Supabase at all
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Supabase connection error:", sessionError)
       return false
     }
 
-    // Check if our bucket exists in the list
-    const bucketExists = data.some((bucket) => bucket.name === BUCKET_NAME)
+    console.log("Supabase connection successful")
 
-    if (!bucketExists) {
-      console.error(`Bucket "${BUCKET_NAME}" does not exist`)
+    // Try a direct operation on the bucket instead of listing all buckets
+    try {
+      // Try to list the root of the bucket (which should work even if empty)
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).list()
+
+      if (error) {
+        console.error(`Error accessing bucket "${BUCKET_NAME}":`, error)
+        return false
+      }
+
+      console.log(`Successfully accessed bucket "${BUCKET_NAME}"`)
+      return true
+    } catch (bucketError) {
+      console.error(`Error checking bucket "${BUCKET_NAME}":`, bucketError)
       return false
     }
-
-    return true
   } catch (error) {
     console.error("Error checking storage availability:", error)
     return false

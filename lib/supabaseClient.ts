@@ -21,6 +21,20 @@ export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "", {
   },
 })
 
+// Log connection status on initialization (for debugging)
+;(async () => {
+  try {
+    const { data, error } = await supabase.auth.getSession()
+    if (error) {
+      console.error("Supabase connection error:", error)
+    } else {
+      console.log("Supabase connection established", data ? "with session" : "anonymously")
+    }
+  } catch (err) {
+    console.error("Failed to initialize Supabase client:", err)
+  }
+})()
+
 // Type definition for draft applications
 export type DraftApplication = {
   id?: number

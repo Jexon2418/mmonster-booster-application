@@ -32,24 +32,46 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
 
   // Check if storage is available when the component mounts
   useEffect(() => {
+    let isMounted = true
+
     const checkStorage = async () => {
+      if (!isMounted) return
+
       setIsCheckingStorage(true)
+      setError(null)
+
       try {
+        console.log("Checking Supabase storage availability...")
         const available = await checkStorageAvailability()
+
+        if (!isMounted) return
+
         setIsStorageAvailable(available)
+
         if (!available) {
-          setError("Storage is not available. Please contact support.")
+          setError("Storage service is not available. Please try again later or contact support.")
+          console.error("Storage availability check failed")
+        } else {
+          console.log("Storage is available and ready")
         }
       } catch (err) {
+        if (!isMounted) return
+
         console.error("Error checking storage:", err)
-        setError("Failed to connect to storage. Please try again later.")
+        setError("Failed to connect to storage service. Please try again later.")
         setIsStorageAvailable(false)
       } finally {
-        setIsCheckingStorage(false)
+        if (isMounted) {
+          setIsCheckingStorage(false)
+        }
       }
     }
 
     checkStorage()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,7 +89,7 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
     if (!isStorageAvailable) {
       toast({
         title: "Storage not available",
-        description: "The file storage system is not available. Please contact support.",
+        description: "The file storage system is not available. Please try again later.",
         variant: "destructive",
       })
       return
@@ -165,6 +187,25 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
     }
   }
 
+  const retryStorageCheck = async () => {
+    setIsCheckingStorage(true)
+    setError(null)
+
+    try {
+      const available = await checkStorageAvailability()
+      setIsStorageAvailable(available)
+
+      if (!available) {
+        setError("Storage service is still not available. Please try again later.")
+      }
+    } catch (err) {
+      setError("Failed to connect to storage service. Please try again later.")
+      setIsStorageAvailable(false)
+    } finally {
+      setIsCheckingStorage(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -174,14 +215,30 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
         <div className="text-gray-400 text-xs">JPG, PNG, WebP • Max {MAX_FILE_SIZE / (1024 * 1024)}MB</div>
       </div>
 
-      {/* Error message */}
+      {/* Error message with retry button */}
       {error && (
-        <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-3 rounded-md flex items-start">
-          <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="font-medium">Upload Error</p>
-            <p className="text-sm">{error}</p>
+        <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-3 rounded-md">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Upload Error</p>
+              <p className="text-sm">{error}</p>
+            </div>
           </div>
+          <button
+            onClick={retryStorageCheck}
+            className="mt-2 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 text-sm rounded-md transition-colors"
+            disabled={isCheckingStorage}
+          >
+            {isCheckingStorage ? (
+              <span className="flex items-center">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Checking...
+              </span>
+            ) : (
+              "Retry Connection"
+            )}
+          </button>
         </div>
       )}
 
@@ -249,7 +306,7 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
           <div className="text-white font-medium">Uploaded screenshots:</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {uploadedFiles.map((file, index) => (
-              <div key={file.path} className="bg-[#2D3748] p-3 rounded-md">
+              <div key={file.path || index} className="bg-[#2D3748] p-3 rounded-md">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-400 mr-2">{index + 1}.</span>
                   <span className="text-white truncate max-w-[150px]">{file.filename}</span>
