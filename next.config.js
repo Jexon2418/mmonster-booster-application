@@ -11,14 +11,8 @@ const nextConfig = {
     domains: ["cdn.discordapp.com"],
     unoptimized: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: "/api/auth/callback/discord",
-        destination: "/api/auth/callback/discord",
-      },
-    ]
-  },
+  // Remove rewrites as they might be causing issues
+  // We'll rely on Next.js's default routing instead
 }
 
 module.exports = nextConfig

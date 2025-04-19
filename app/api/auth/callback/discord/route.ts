@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server"
 import { DISCORD_CONFIG } from "@/lib/env"
 
+// Log that this route is being accessed
+console.log("Discord callback route accessed (App Router)")
+
 export async function GET(request: Request) {
+  console.log("Processing Discord callback in App Router")
+
   // Get the code from the URL query parameters
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
+  const state = searchParams.get("state")
+
+  console.log(`Received code: ${code ? "yes" : "no"}, state: ${state ? "yes" : "no"}`)
 
   // Get the host from the request headers
   const host = request.headers.get("host") || ""
@@ -12,6 +20,7 @@ export async function GET(request: Request) {
 
   // Construct the base URL
   const baseUrl = `${protocol}://${host}`
+  console.log(`Base URL: ${baseUrl}`)
 
   if (!code) {
     console.error("Missing authorization code from Discord")
@@ -19,6 +28,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log("Exchanging code for token...")
     // Exchange the code for an access token
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
@@ -44,6 +54,7 @@ export async function GET(request: Request) {
     console.log("Successfully obtained Discord access token")
 
     // Use the access token to fetch the user's profile
+    console.log("Fetching user profile...")
     const userResponse = await fetch("https://discord.com/api/v10/users/@me", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -57,7 +68,7 @@ export async function GET(request: Request) {
     }
 
     const userData = await userResponse.json()
-    console.log("Successfully fetched Discord user data")
+    console.log("Successfully fetched Discord user data:", userData.username)
 
     // Format the user data
     const formattedUserData = {
@@ -71,6 +82,7 @@ export async function GET(request: Request) {
 
     // Encode the user data to pass it in the URL
     const encodedUserData = encodeURIComponent(JSON.stringify(formattedUserData))
+    console.log("Redirecting with user data...")
 
     // Redirect back to the application with the user data
     return NextResponse.redirect(`${baseUrl}/?discord_user=${encodedUserData}`)

@@ -4,7 +4,8 @@
 export const DISCORD_CONFIG = {
   CLIENT_ID: process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID,
   CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
-  REDIRECT_URI: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || "https://gamerxt.com/api/auth/callback/discord",
+  // Use the exact URL that's configured in Discord Developer Portal
+  REDIRECT_URI: "https://gamerxt.com/api/auth/callback/discord",
 }
 
 // N8N webhook configuration
