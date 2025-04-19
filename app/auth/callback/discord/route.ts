@@ -1,33 +1,80 @@
-import { redirect } from "next/navigation"
-import { handleDiscordCallback } from "@/lib/discord-auth"
+import { NextResponse } from "next/server"
+import { DISCORD_CONFIG } from "@/lib/env"
 
 export async function GET(request: Request) {
   // Get the code from the URL query parameters
-  const url = new URL(request.url)
-  const code = url.searchParams.get("code")
-  const state = url.searchParams.get("state")
+  const { searchParams } = new URL(request.url)
+  const code = searchParams.get("code")
+  const state = searchParams.get("state")
 
   if (!code) {
-    // If there's no code, redirect to the form with an error
-    redirect("/?error=missing_code")
+    console.error("Missing authorization code from Discord")
+    return NextResponse.redirect(new URL("/?error=missing_code", request.url))
   }
 
   try {
-    // Process the Discord callback
-    const result = await handleDiscordCallback(code)
+    // Exchange the code for an access token
+    const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: DISCORD_CONFIG.CLIENT_ID!,
+        client_secret: DISCORD_CONFIG.CLIENT_SECRET!,
+        grant_type: "authorization_code",
+        code: code,
+        redirect_uri: DISCORD_CONFIG.REDIRECT_URI!,
+      }),
+    })
 
-    if (result.success) {
-      // Store the Discord user data in a cookie or session
-      // For simplicity, we'll use URL parameters, but in a production app
-      // you should use a more secure method like cookies or server sessions
-      const userData = encodeURIComponent(JSON.stringify(result.user))
-      redirect(`/?discord_user=${userData}`)
-    } else {
-      // If there was an error, redirect with the error message
-      redirect(`/?error=${encodeURIComponent(result.error || "unknown_error")}`)
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text()
+      console.error("Failed to exchange code for token:", errorData)
+      return NextResponse.redirect(
+        new URL(`/?error=${encodeURIComponent("Failed to authenticate with Discord")}`, request.url),
+      )
     }
+
+    const tokenData = await tokenResponse.json()
+    console.log("Successfully obtained Discord access token")
+
+    // Use the access token to fetch the user's profile
+    const userResponse = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    })
+
+    if (!userResponse.ok) {
+      const errorData = await userResponse.text()
+      console.error("Failed to fetch Discord user:", errorData)
+      return NextResponse.redirect(
+        new URL(`/?error=${encodeURIComponent("Failed to fetch Discord user data")}`, request.url),
+      )
+    }
+
+    const userData = await userResponse.json()
+    console.log("Successfully fetched Discord user data")
+
+    // Format the user data
+    const formattedUserData = {
+      id: userData.id,
+      username: userData.username,
+      discriminator: userData.discriminator,
+      avatar: userData.avatar,
+      email: userData.email,
+      fullDiscordTag: userData.discriminator ? `${userData.username}#${userData.discriminator}` : userData.username,
+    }
+
+    // Encode the user data to pass it in the URL
+    // In a production app, you should use cookies or server sessions instead
+    const encodedUserData = encodeURIComponent(JSON.stringify(formattedUserData))
+
+    // Redirect back to the application with the user data
+    return NextResponse.redirect(new URL(`/?discord_user=${encodedUserData}`, request.url))
   } catch (error) {
     console.error("Error handling Discord callback:", error)
-    redirect("/?error=server_error")
+    return NextResponse.redirect(new URL("/?error=server_error", request.url))
   }
 }

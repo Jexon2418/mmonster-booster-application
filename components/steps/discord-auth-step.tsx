@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { FormSection, FormButtons, Alert } from "../ui-components"
 import { getDiscordAuthUrl } from "@/lib/discord-auth"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import type { FormData } from "../booster-application-form"
 
 interface DiscordAuthStepProps {
@@ -19,6 +19,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
   const [error, setError] = useState<string | null>(null)
   const [configError, setConfigError] = useState<boolean>(false)
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Get Discord user data from URL if available
   const discordUserParam = searchParams.get("discord_user")
@@ -44,6 +45,11 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     // Handle error from callback
     if (errorParam) {
       setError(decodeURIComponent(errorParam))
+
+      // Clean up the URL to remove the error parameter
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete("error")
+      router.replace(newUrl.pathname + newUrl.search)
     }
 
     // Handle successful Discord authentication
@@ -57,6 +63,11 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
           // You can store additional Discord user data if needed
         })
 
+        // Clean up the URL to remove the discord_user parameter
+        const newUrl = new URL(window.location.href)
+        newUrl.searchParams.delete("discord_user")
+        router.replace(newUrl.pathname + newUrl.search)
+
         // Automatically proceed to the next step
         onContinue()
       } catch (e) {
@@ -64,7 +75,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
         setError("Failed to process Discord authentication data")
       }
     }
-  }, [discordUserParam, errorParam, updateFormData, onContinue])
+  }, [discordUserParam, errorParam, updateFormData, onContinue, router])
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
