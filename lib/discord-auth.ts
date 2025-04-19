@@ -2,6 +2,9 @@
 
 import { DISCORD_CONFIG, validateEnv } from "./env"
 
+// Экспортируем DISCORD_CONFIG для использования в других файлах
+export { DISCORD_CONFIG }
+
 // Discord API endpoints
 const DISCORD_API_URL = "https://discord.com/api/v10"
 const DISCORD_AUTH_URL = `https://discord.com/api/oauth2/authorize`

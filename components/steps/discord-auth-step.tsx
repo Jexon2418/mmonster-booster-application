@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { FormSection, FormButtons, Alert } from "../ui-components"
 import { getDiscordAuthUrl } from "@/lib/discord-auth"
 import { useSearchParams } from "next/navigation"
-import type { FormData, DiscordUser } from "../booster-application-form"
+import type { FormData } from "../booster-application-form"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
@@ -51,34 +51,14 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       window.history.replaceState({}, "", url)
     }
 
-    // Handle successful Discord authentication
-    if (discordUserParam) {
-      try {
-        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
-
-        // Update form data with Discord user information
-        updateFormData({
-          discordId: discordUser.fullDiscordTag,
-          discordUser: discordUser,
-        })
-
-        // Clean up the URL
-        const url = new URL(window.location.href)
-        url.searchParams.delete("discord_user")
-        window.history.replaceState({}, "", url)
-
-        // Automatically proceed to the next step (Discord verification success)
-        onContinue()
-      } catch (e) {
-        console.error("Error parsing Discord user data:", e)
-        setError("Failed to process Discord authentication data")
-      }
-    }
-  }, [discordUserParam, errorParam, updateFormData, onContinue])
+    // Удаляем обработку discordUserParam, так как она теперь в основном компоненте формы
+  }, [errorParam])
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
-      // Store the current URL to return to after authentication
+      // Сохраняем информацию о том, что мы находимся на шаге аутентификации
+      sessionStorage.setItem("currentFormStep", "2")
+      // Сохраняем текущий URL для возврата после аутентификации
       sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
       window.location.href = discordAuthUrl
     } else {
