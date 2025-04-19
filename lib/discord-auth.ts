@@ -1,9 +1,9 @@
 "use server"
 
-// Discord OAuth2 configuration
-const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET!
-const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
+// Discord OAuth2 configuration - Access environment variables directly
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET
+const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
 
 // Discord API endpoints
 const DISCORD_API_URL = "https://discord.com/api/v10"
@@ -19,6 +19,19 @@ const SCOPES = ["identify", "email"].join(" ")
  * @returns The URL to redirect the user to for Discord authentication
  */
 export async function getDiscordAuthUrl() {
+  // Debug logging to check environment variables
+  console.log("Discord Client ID:", DISCORD_CLIENT_ID)
+  console.log("Discord Redirect URI:", DISCORD_REDIRECT_URI)
+
+  // Validate required environment variables
+  if (!DISCORD_CLIENT_ID) {
+    throw new Error("Discord Client ID is not defined in environment variables")
+  }
+
+  if (!DISCORD_REDIRECT_URI) {
+    throw new Error("Discord Redirect URI is not defined in environment variables")
+  }
+
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: DISCORD_REDIRECT_URI,
@@ -35,6 +48,11 @@ export async function getDiscordAuthUrl() {
  * @returns The access token and related information
  */
 async function exchangeCodeForToken(code: string) {
+  // Validate required environment variables
+  if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_REDIRECT_URI) {
+    throw new Error("Missing required Discord configuration in environment variables")
+  }
+
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     client_secret: DISCORD_CLIENT_SECRET,
