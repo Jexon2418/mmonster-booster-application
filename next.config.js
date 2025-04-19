@@ -8,7 +8,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ["cdn.discordapp.com"],
+    domains: ["cdn.discordapp.com", "mmonster.co"],
     unoptimized: true,
   },
   // Remove rewrites as they might be causing issues

@@ -12,7 +12,13 @@ export function WelcomeStep({ onContinue }: WelcomeStepProps) {
     <FormSection title="Verification for MmonsteR">
       <div className="flex flex-col items-center justify-center py-6">
         <div className="w-64 h-24 relative mb-8">
-          <Image src="/mmonster-logo.png" alt="MMOnster Logo" fill style={{ objectFit: "contain" }} priority />
+          <Image
+            src="https://mmonster.co/media/4c/80/67/1729440457/mmonster_logo.svg"
+            alt="MMOnster Logo"
+            fill
+            style={{ objectFit: "contain" }}
+            priority
+          />
         </div>
         <p className="text-center text-gray-400 mb-8">
           You're about to submit sensitive data to MmonsteR. If you received this link from a suspicious source, please
