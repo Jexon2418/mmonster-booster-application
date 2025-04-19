@@ -17,6 +17,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
   const [discordAuthUrl, setDiscordAuthUrl] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [configError, setConfigError] = useState<boolean>(false)
   const searchParams = useSearchParams()
 
   // Get Discord user data from URL if available
@@ -33,6 +34,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       } catch (error) {
         console.error("Failed to get Discord auth URL:", error)
         setError(error instanceof Error ? error.message : "Failed to initialize Discord authentication")
+        setConfigError(true)
         setIsLoading(false)
       }
     }
@@ -91,7 +93,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
         </p>
         <button
           onClick={handleDiscordAuth}
-          disabled={isLoading || !discordAuthUrl}
+          disabled={isLoading || !discordAuthUrl || configError}
           className="w-full py-3 bg-[#5865F2] text-white rounded-md hover:bg-[#5865F2]/90 transition-colors flex items-center justify-center disabled:opacity-50"
         >
           {isLoading ? (
@@ -111,6 +113,8 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
               </svg>
               Loading...
             </>
+          ) : configError ? (
+            "Discord configuration error"
           ) : (
             <>
               <svg

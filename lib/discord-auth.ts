@@ -1,9 +1,6 @@
 "use server"
 
-// Discord OAuth2 configuration - Access environment variables directly
-const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID
-const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET
-const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
+import { DISCORD_CONFIG, validateEnv } from "./env"
 
 // Discord API endpoints
 const DISCORD_API_URL = "https://discord.com/api/v10"
@@ -19,24 +16,21 @@ const SCOPES = ["identify", "email"].join(" ")
  * @returns The URL to redirect the user to for Discord authentication
  */
 export async function getDiscordAuthUrl() {
-  // Debug logging to check environment variables
-  console.log("Discord Client ID:", DISCORD_CLIENT_ID)
-  console.log("Discord Redirect URI:", DISCORD_REDIRECT_URI)
-
-  // Validate required environment variables
-  if (!DISCORD_CLIENT_ID) {
-    throw new Error("Discord Client ID is not defined in environment variables")
+  // Validate environment variables
+  const isValid = validateEnv()
+  if (!isValid) {
+    throw new Error("Missing required Discord configuration. Please check your environment variables.")
   }
 
-  if (!DISCORD_REDIRECT_URI) {
-    throw new Error("Discord Redirect URI is not defined in environment variables")
-  }
+  // Add a state parameter for CSRF protection
+  const state = Math.random().toString(36).substring(2, 15)
 
   const params = new URLSearchParams({
-    client_id: DISCORD_CLIENT_ID,
-    redirect_uri: DISCORD_REDIRECT_URI,
+    client_id: DISCORD_CONFIG.CLIENT_ID!,
+    redirect_uri: DISCORD_CONFIG.REDIRECT_URI!,
     response_type: "code",
     scope: SCOPES,
+    state: state,
   })
 
   return `${DISCORD_AUTH_URL}?${params.toString()}`
@@ -48,17 +42,18 @@ export async function getDiscordAuthUrl() {
  * @returns The access token and related information
  */
 async function exchangeCodeForToken(code: string) {
-  // Validate required environment variables
-  if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !DISCORD_REDIRECT_URI) {
-    throw new Error("Missing required Discord configuration in environment variables")
+  // Validate environment variables
+  const isValid = validateEnv()
+  if (!isValid) {
+    throw new Error("Missing required Discord configuration. Please check your environment variables.")
   }
 
   const params = new URLSearchParams({
-    client_id: DISCORD_CLIENT_ID,
-    client_secret: DISCORD_CLIENT_SECRET,
+    client_id: DISCORD_CONFIG.CLIENT_ID!,
+    client_secret: DISCORD_CONFIG.CLIENT_SECRET!,
     grant_type: "authorization_code",
     code,
-    redirect_uri: DISCORD_REDIRECT_URI,
+    redirect_uri: DISCORD_CONFIG.REDIRECT_URI!,
   })
 
   const response = await fetch(DISCORD_TOKEN_URL, {
@@ -70,7 +65,7 @@ async function exchangeCodeForToken(code: string) {
   })
 
   if (!response.ok) {
-    const error = await response.json()
+    const error = await response.json().catch(() => ({ error: "Unknown error" }))
     throw new Error(`Failed to exchange code for token: ${JSON.stringify(error)}`)
   }
 
@@ -90,7 +85,7 @@ async function fetchDiscordUser(accessToken: string) {
   })
 
   if (!response.ok) {
-    const error = await response.json()
+    const error = await response.json().catch(() => ({ error: "Unknown error" }))
     throw new Error(`Failed to fetch Discord user: ${JSON.stringify(error)}`)
   }
 
@@ -118,7 +113,7 @@ export async function handleDiscordCallback(code: string) {
         discriminator: userData.discriminator,
         avatar: userData.avatar,
         email: userData.email,
-        fullDiscordTag: `${userData.username}#${userData.discriminator || "0000"}`,
+        fullDiscordTag: userData.discriminator ? `${userData.username}#${userData.discriminator}` : userData.username,
       },
     }
   } catch (error) {

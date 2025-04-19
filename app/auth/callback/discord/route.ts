@@ -5,6 +5,7 @@ export async function GET(request: Request) {
   // Get the code from the URL query parameters
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
+  const state = url.searchParams.get("state")
 
   if (!code) {
     // If there's no code, redirect to the form with an error
