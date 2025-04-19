@@ -23,7 +23,8 @@ export function DiscordUserDisplay({ user, onLogout }: DiscordUserDisplayProps) 
   }
 
   return (
-    <div className="flex items-center justify-end mb-4 bg-[#1A202C] p-2 rounded-md shadow-md">
+    <div className="flex items-center justify-between mb-4 bg-[#1A202C] p-2 rounded-md shadow-md">
+      <div className="text-white font-semibold">MmonsteR Booster Application</div>
       <div className="flex items-center">
         <div className="relative w-8 h-8 rounded-full overflow-hidden mr-2 border-2 border-[#5865F2]">
           <Image src={getAvatarUrl() || "/placeholder.svg"} alt="Discord Avatar" fill className="object-cover" />

@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation"
 import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
 import { DiscordUserDisplay } from "./discord-user-display"
+import { TopNavigation } from "./top-navigation"
 import {
   saveDiscordUser,
   getDiscordUser,
@@ -353,6 +354,31 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     }
   }
 
+  const isButtonDisabled = () => {
+    switch (currentStep) {
+      case 3: // Discord verification success
+        return false
+      case 4: // Classification
+        return !formData.classification || !formData.joinedDiscord
+      case 5: // Services
+        return formData.services.length === 0
+      case 6: // Games
+        return formData.games.length === 0
+      case 7: // Experience
+        return !formData.experience
+      case 8: // Contact
+        return !formData.discordId
+      case 9: // Personal
+        return !formData.fullName || !formData.dateOfBirth || !formData.country || !formData.language
+      case 10: // Discord server
+        return !formData.joinedDiscord
+      case 11: // Crypto
+        return !formData.acceptCrypto || isSubmitting
+      default:
+        return false
+    }
+  }
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -429,7 +455,18 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     <div className="w-full max-w-3xl px-4">
       {isDiscordAuthenticated() && <DiscordUserDisplay user={formData.discordUser} onLogout={handleLogout} />}
       <StepIndicator currentStep={currentStep} totalSteps={11} />
-      <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">{renderStep()}</div>
+      <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
+        {currentStep > 1 && (
+          <TopNavigation
+            onBack={prevStep}
+            onNext={nextStep}
+            currentStep={currentStep}
+            totalSteps={11}
+            disableNext={isButtonDisabled()}
+          />
+        )}
+        {renderStep()}
+      </div>
     </div>
   )
 }

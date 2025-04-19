@@ -86,24 +86,6 @@ export function CryptoStep({ formData, updateFormData, onSubmit, onBack, isSubmi
             "Submit Application"
           )}
         </button>
-        {onBack && (
-          <button
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="flex items-center justify-center w-full sm:w-auto px-6 py-3 bg-transparent border border-[#E53E3E]/30 text-[#E53E3E] rounded-md hover:bg-[#E53E3E]/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Previous Step
-          </button>
-        )}
       </div>
     </FormSection>
   )
