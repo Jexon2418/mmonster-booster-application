@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     // Send webhook with Discord user data (non-blocking)
     try {
       // Use a non-blocking fetch to send the webhook
-      fetch("https://javesai.app.n8n.cloud/webhook/7c27a787-36b2-4e01-a154-973ccd8d1ae9", {
+      fetch("https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
