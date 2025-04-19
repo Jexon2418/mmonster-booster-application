@@ -17,6 +17,14 @@ import { submitBoosterApplication } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
+import { DiscordUserDisplay } from "./discord-user-display"
+import {
+  saveDiscordUser,
+  getDiscordUser,
+  clearDiscordUser,
+  isDiscordAuthenticated,
+  verifyDiscordSession,
+} from "@/lib/auth-service"
 
 export type DiscordUser = {
   id: string
@@ -155,21 +163,60 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     }
   }
 
-  // Обработка возврата после аутентификации Discord
+  // Check for existing Discord session on mount
   useEffect(() => {
-    // Если это возврат от Discord OAuth, переходим на шаг 2 (Discord Auth)
+    // First check if we have a Discord user in localStorage
+    const savedDiscordUser = getDiscordUser()
+
+    if (savedDiscordUser) {
+      // Verify the session with Supabase
+      verifyDiscordSession(savedDiscordUser.id)
+        .then((isValid) => {
+          if (isValid) {
+            // If session is valid, update the form data
+            updateFormData({
+              discordId: savedDiscordUser.fullDiscordTag,
+              discordUser: savedDiscordUser,
+            })
+
+            // Load draft data if available
+            loadDraft(savedDiscordUser.id)
+
+            // If we're on step 1 or 2, move to step 3 (Discord verification success)
+            if (currentStep <= 2) {
+              setCurrentStep(3)
+            }
+          } else {
+            // If session is invalid, clear the user data
+            clearDiscordUser()
+            toast({
+              title: "Session Expired",
+              description: "Your Discord session has expired. Please log in again.",
+            })
+          }
+        })
+        .catch((error) => {
+          console.error("Error verifying Discord session:", error)
+          // On error, we'll keep the user logged in but log the error
+        })
+    }
+
+    // Then check if this is a return from Discord OAuth
     if (initialDiscordCallback) {
       console.log("Setting step to Discord Auth (2) due to OAuth callback")
       setCurrentStep(2)
     }
 
-    // Проверяем, есть ли параметр discord_user в URL
+    // Check for discord_user param in URL
     const discordUserParam = searchParams.get("discord_user")
     if (discordUserParam) {
       try {
         const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
 
-        // Обновляем данные формы с информацией о Discord пользователе
+        // Save the Discord user to localStorage and Supabase
+        saveDiscordUser(discordUser)
+
+        // Update form data with Discord user info
         updateFormData({
           discordId: discordUser.fullDiscordTag,
           discordUser: discordUser,
@@ -178,11 +225,11 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         // Load draft data if available
         loadDraft(discordUser.id)
 
-        // Переходим на шаг успешной верификации Discord
+        // Move to Discord verification success step
         console.log("Setting step to Discord Verification Success (3) due to discord_user param")
         setCurrentStep(3)
 
-        // Очищаем URL от параметров
+        // Clean up URL params
         const url = new URL(window.location.href)
         url.searchParams.delete("discord_user")
         window.history.replaceState({}, document.title, url.toString())
@@ -190,7 +237,24 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         console.error("Error parsing Discord user data:", e)
       }
     }
-  }, [initialDiscordCallback, searchParams, updateFormData, loadDraft])
+  }, [initialDiscordCallback, searchParams, updateFormData, loadDraft, currentStep, toast])
+
+  // Add a logout handler function
+  const handleLogout = useCallback(() => {
+    // Clear Discord user data
+    clearDiscordUser()
+
+    // Reset form data
+    setFormData(initialFormData)
+
+    // Return to first step
+    setCurrentStep(1)
+
+    toast({
+      title: "Logged Out",
+      description: "You have been logged out of your Discord account.",
+    })
+  }, [toast])
 
   const handleSubmit = async () => {
     try {
@@ -313,6 +377,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
   return (
     <div className="w-full max-w-3xl px-4">
+      {isDiscordAuthenticated() && <DiscordUserDisplay user={formData.discordUser} onLogout={handleLogout} />}
       <StepIndicator currentStep={currentStep} totalSteps={11} />
       <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">{renderStep()}</div>
     </div>

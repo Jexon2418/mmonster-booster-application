@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { FormSection, FormButtons, Alert } from "../ui-components"
 import { useSearchParams } from "next/navigation"
 import type { FormData, DiscordUser } from "../booster-application-form"
+import { saveDiscordUser } from "@/lib/auth-service"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
@@ -27,7 +28,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     // Initialize the Discord auth URL
     async function loadAuthUrl() {
       try {
-        // Создаем URL для аутентификации Discord напрямую, без вызова серверной функции
+        // Create URL for Discord authentication directly
         const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
         const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
 
@@ -69,23 +70,26 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       window.history.replaceState({}, "", url)
     }
 
-    // Обрабатываем параметр discord_user здесь, чтобы не зависеть от родительского компонента
+    // Handle discord_user param
     if (discordUserParam) {
       try {
         const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
 
-        // Обновляем данные формы с информацией о Discord пользователе
+        // Save Discord user to localStorage and Supabase
+        saveDiscordUser(discordUser)
+
+        // Update form data with Discord user info
         updateFormData({
           discordId: discordUser.fullDiscordTag,
           discordUser: discordUser,
         })
 
-        // Очищаем URL от параметров
+        // Clean up URL params
         const url = new URL(window.location.href)
         url.searchParams.delete("discord_user")
         window.history.replaceState({}, "", url)
 
-        // Автоматически переходим на следующий шаг (Discord verification success)
+        // Move to next step
         onContinue()
       } catch (e) {
         console.error("Error parsing Discord user data:", e)
