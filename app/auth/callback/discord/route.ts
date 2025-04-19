@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { DISCORD_CONFIG } from "@/lib/env"
 
 export async function GET(request: Request) {
-  console.log("Inside Discord callback (App Router)")
+  console.log("=== DISCORD CALLBACK STARTED (App Router) ===")
 
   // Get the code from the URL query parameters
   const { searchParams } = new URL(request.url)
@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
   // Construct the base URL
   const baseUrl = `${protocol}://${host}`
+  console.log(`Base URL: ${baseUrl}`)
 
   if (!code) {
     console.error("Missing authorization code from Discord")
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    console.log("Exchanging code for token...")
     // Exchange the code for an access token
     const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
     console.log("Successfully obtained Discord access token")
 
     // Use the access token to fetch the user's profile
+    console.log("Fetching user profile...")
     const userResponse = await fetch("https://discord.com/api/v10/users/@me", {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -66,7 +69,14 @@ export async function GET(request: Request) {
       ? `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
       : `https://cdn.discordapp.com/embed/avatars/${Number.parseInt(userData.discriminator || "0") % 5}.png`
 
-    // Send webhook with Discord user data
+    // WEBHOOK SECTION - Send webhook with Discord user data
+    console.log("=== SENDING WEBHOOK - START ===")
+
+    // Hardcoded webhook URL for reliability
+    const webhookUrl = "https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9"
+    console.log(`Webhook URL: ${webhookUrl}`)
+
+    // Prepare the payload
     const webhookPayload = {
       discord_id: userData.id,
       discord_username: userData.username,
@@ -74,10 +84,13 @@ export async function GET(request: Request) {
       discord_avatar_url: avatarUrl || "",
     }
 
-    const webhookUrl = "https://javesai.app.n8n.cloud/webhook-test/7c27a787-36b2-4e01-a154-973ccd8d1ae9"
+    console.log("Webhook payload:", JSON.stringify(webhookPayload))
 
+    // Send the webhook in a separate try-catch to not affect the main flow
     try {
-      console.log("Sending webhook to n8n")
+      console.log("Sending webhook request...")
+
+      // Use a simple fetch with no fancy options
       const webhookResponse = await fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -86,15 +99,21 @@ export async function GET(request: Request) {
         body: JSON.stringify(webhookPayload),
       })
 
+      const responseText = await webhookResponse.text()
+
       if (webhookResponse.ok) {
-        console.log("Webhook sent successfully:", await webhookResponse.text())
+        console.log(`Webhook sent successfully! Status: ${webhookResponse.status}`)
+        console.log(`Response: ${responseText}`)
       } else {
-        console.error("Webhook sending failed, status:", webhookResponse.status)
-        console.error("Webhook error body:", await webhookResponse.text())
+        console.error(`Webhook failed! Status: ${webhookResponse.status}`)
+        console.error(`Error response: ${responseText}`)
       }
-    } catch (error) {
-      console.error("Webhook sending error:", error)
+    } catch (webhookError) {
+      console.error("Webhook error:", webhookError)
     }
+
+    console.log("=== SENDING WEBHOOK - END ===")
+    // END WEBHOOK SECTION
 
     // Format the user data for the redirect
     const formattedUserData = {
@@ -108,6 +127,7 @@ export async function GET(request: Request) {
 
     // Encode the user data to pass it in the URL
     const encodedUserData = encodeURIComponent(JSON.stringify(formattedUserData))
+    console.log("Redirecting with user data...")
 
     // Redirect back to the application with the user data
     return NextResponse.redirect(`${baseUrl}/?discord_user=${encodedUserData}`)
