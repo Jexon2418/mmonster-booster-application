@@ -8,8 +8,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error("Missing Supabase environment variables. Please check your .env.local file.")
 }
 
-// Create a Supabase client
-export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "")
+// Create a Supabase client with better error handling
+export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "", {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    fetch: (...args) => {
+      return fetch(...args)
+    },
+  },
+})
 
 // Type definition for draft applications
 export type DraftApplication = {

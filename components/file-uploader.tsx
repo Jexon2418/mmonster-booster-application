@@ -2,17 +2,19 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { Loader2, X, Upload } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Loader2, X, Upload, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { uploadFile, deleteFile, MAX_FILES, MAX_FILE_SIZE, ALLOWED_FILE_TYPES } from "@/lib/supabaseStorage"
-
-export type UploadedFile = {
-  path: string
-  filename: string
-  size: number
-  type: string
-}
+import {
+  uploadFile,
+  deleteFile,
+  MAX_FILES,
+  MAX_FILE_SIZE,
+  ALLOWED_FILE_TYPES,
+  ensureStorageBucket,
+} from "@/lib/supabaseStorage"
+import type { UploadedFile } from "@/lib/supabaseStorage"
+import Image from "next/image"
 
 interface FileUploaderProps {
   discordId: string
@@ -23,15 +25,48 @@ interface FileUploaderProps {
 export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUploaderProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [isBucketReady, setIsBucketReady] = useState(false)
   const { toast } = useToast()
+
+  // Check if the storage bucket exists when the component mounts
+  useEffect(() => {
+    const checkBucket = async () => {
+      try {
+        const ready = await ensureStorageBucket()
+        setIsBucketReady(ready)
+        if (!ready) {
+          setError("Storage is not available. Please try again later.")
+        }
+      } catch (err) {
+        console.error("Error checking storage bucket:", err)
+        setError("Failed to initialize storage. Please try again later.")
+      }
+    }
+
+    checkBucket()
+  }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
+
+    // Clear previous errors
+    setError(null)
 
     const file = e.target.files[0]
 
     // Reset the input value so the same file can be selected again if needed
     e.target.value = ""
+
+    // Check if storage is ready
+    if (!isBucketReady) {
+      toast({
+        title: "Storage not available",
+        description: "The file storage system is not available. Please try again later.",
+        variant: "destructive",
+      })
+      return
+    }
 
     // Check if we've reached the maximum number of files
     if (uploadedFiles.length >= MAX_FILES) {
@@ -92,6 +127,7 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
         })
       }
     } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to upload file. Please try again.")
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "Failed to upload file. Please try again.",
@@ -133,6 +169,17 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
         <div className="text-gray-400 text-xs">JPG, PNG, WebP • Max {MAX_FILE_SIZE / (1024 * 1024)}MB</div>
       </div>
 
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-500/50 text-red-200 p-3 rounded-md flex items-start">
+          <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Upload Error</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* Upload progress indicator */}
       {isUploading && (
         <div className="space-y-2">
@@ -154,7 +201,7 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
         <label
           htmlFor="file-upload"
           className={`flex items-center justify-center w-full p-4 border-2 border-dashed border-[#4A5568] rounded-md cursor-pointer hover:bg-[#1E2533] transition-colors ${
-            uploadedFiles.length >= MAX_FILES || isUploading ? "opacity-50 cursor-not-allowed" : ""
+            uploadedFiles.length >= MAX_FILES || isUploading || !isBucketReady ? "opacity-50 cursor-not-allowed" : ""
           }`}
         >
           <input
@@ -163,7 +210,7 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
             className="hidden"
             accept={ALLOWED_FILE_TYPES.join(",")}
             onChange={handleFileChange}
-            disabled={uploadedFiles.length >= MAX_FILES || isUploading}
+            disabled={uploadedFiles.length >= MAX_FILES || isUploading || !isBucketReady}
           />
           <div className="flex flex-col items-center">
             {isUploading ? (
@@ -175,7 +222,9 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
             <p className="text-gray-400 text-sm mt-1">
               {uploadedFiles.length >= MAX_FILES
                 ? "Maximum number of files reached"
-                : "Click to browse or drag and drop"}
+                : !isBucketReady
+                  ? "Storage not available"
+                  : "Click to browse or drag and drop"}
             </p>
           </div>
         </label>
@@ -185,20 +234,34 @@ export function FileUploader({ discordId, uploadedFiles, onFilesChange }: FileUp
       {uploadedFiles.length > 0 && (
         <div className="space-y-2 mt-4">
           <div className="text-white font-medium">Uploaded screenshots:</div>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {uploadedFiles.map((file, index) => (
-              <div key={file.path} className="flex items-center justify-between bg-[#2D3748] p-3 rounded-md">
-                <div className="flex items-center">
+              <div key={file.path} className="bg-[#2D3748] p-3 rounded-md">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-400 mr-2">{index + 1}.</span>
-                  <span className="text-white truncate max-w-[200px]">{file.filename}</span>
+                  <span className="text-white truncate max-w-[150px]">{file.filename}</span>
+                  <button
+                    onClick={() => handleRemoveFile(file)}
+                    className="text-gray-400 hover:text-[#E53E3E] transition-colors"
+                    aria-label="Remove file"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleRemoveFile(file)}
-                  className="text-gray-400 hover:text-[#E53E3E] transition-colors"
-                  aria-label="Remove file"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                {file.url && (
+                  <div className="relative h-24 w-full rounded-md overflow-hidden">
+                    <Image
+                      src={file.url || "/placeholder.svg"}
+                      alt={file.filename}
+                      fill
+                      className="object-cover"
+                      onError={(e) => {
+                        // If image fails to load, show a placeholder
+                        e.currentTarget.src = "/placeholder.svg?height=96&width=200"
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
