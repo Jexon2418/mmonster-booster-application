@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FormSection, FormButtons, FormTextarea } from "../ui-components"
 import { SupabaseFileUpload } from "../supabase-file-upload"
 import type { FormData } from "../booster-application-form"
@@ -25,6 +25,13 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
 
   // Get Discord ID from formData
   const discordId = formData.discordUser?.id || "anonymous"
+
+  // Log initial state for debugging
+  useEffect(() => {
+    if (formData.uploadedScreenshots && formData.uploadedScreenshots.length > 0) {
+      console.log("Initial uploaded screenshots count:", formData.uploadedScreenshots.length)
+    }
+  }, [formData.uploadedScreenshots])
 
   const handleContinue = () => {
     updateFormData({

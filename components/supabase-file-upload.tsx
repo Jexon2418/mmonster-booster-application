@@ -36,30 +36,34 @@ export function SupabaseFileUpload({
   // Filter out any invalid initial files (those without path or with empty values)
   const validInitialFiles = initialFiles?.filter((file) => file && file.path && file.name && file.size) || []
 
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(validInitialFiles)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isProcessingInitial, setIsProcessingInitial] = useState(validInitialFiles.length > 0)
   const maxSizeBytes = maxSizeMB * 1024 * 1024 // Convert MB to bytes
 
   // Process initial files only once on component mount
   useEffect(() => {
     const processInitialFiles = async () => {
-      if (!validInitialFiles.length) return
+      if (!validInitialFiles.length) {
+        setIsProcessingInitial(false)
+        return
+      }
 
       try {
         const updatedFiles = await Promise.all(
           validInitialFiles.map(async (file) => {
-            // If the file already has a valid URL, use it
-            if (file.url && (file.url.startsWith("http://") || file.url.startsWith("https://"))) {
-              return file
-            }
-
-            // Otherwise, generate a new public URL
+            // Always regenerate the public URL to ensure it's fresh
             try {
               const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
+
+              // Add a cache-busting parameter to the URL to prevent caching issues
+              const cacheBuster = `?t=${Date.now()}`
+              const publicUrl = `${data.publicUrl}${cacheBuster}`
+
               return {
                 ...file,
-                url: data.publicUrl,
+                url: publicUrl,
               }
             } catch (error) {
               console.error("Error generating public URL for file:", file.path, error)
@@ -69,16 +73,16 @@ export function SupabaseFileUpload({
         )
 
         // Only update state if there are valid files with URLs
-        if (updatedFiles.some((file) => file.url)) {
-          setUploadedFiles(updatedFiles)
-        }
+        setUploadedFiles(updatedFiles)
       } catch (error) {
         console.error("Error processing initial files:", error)
+      } finally {
+        setIsProcessingInitial(false)
       }
     }
 
     processInitialFiles()
-  }, []) // Empty dependency array - run only once on mount
+  }, [validInitialFiles]) // Only depend on validInitialFiles
 
   // Notify parent component when files change, but avoid infinite loops
   useEffect(() => {
@@ -88,9 +92,11 @@ export function SupabaseFileUpload({
       return
     }
 
-    // Only call onFilesChange when we have actual files to report
-    onFilesChange(uploadedFiles)
-  }, [uploadedFiles, onFilesChange])
+    // Only call onFilesChange when we're not processing initial files
+    if (!isProcessingInitial) {
+      onFilesChange(uploadedFiles)
+    }
+  }, [uploadedFiles, onFilesChange, isProcessingInitial])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
@@ -139,8 +145,12 @@ export function SupabaseFileUpload({
           throw new Error("Failed to generate public URL for uploaded file")
         }
 
+        // Add a cache-busting parameter to the URL
+        const cacheBuster = `?t=${Date.now()}`
+        const publicUrl = `${urlData.publicUrl}${cacheBuster}`
+
         newFiles.push({
-          url: urlData.publicUrl,
+          url: publicUrl,
           path: filePath,
           name: file.name,
           size: file.size,
@@ -228,6 +238,13 @@ export function SupabaseFileUpload({
         </div>
       )}
 
+      {isProcessingInitial && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-[#E53E3E]" />
+          <span className="ml-2 text-gray-400">Loading saved screenshots...</span>
+        </div>
+      )}
+
       {uploadedFiles.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
           {uploadedFiles.map((file, index) => (
@@ -244,6 +261,7 @@ export function SupabaseFileUpload({
                       // Set fallback image on error
                       e.currentTarget.src = "/placeholder.svg"
                     }}
+                    unoptimized // Bypass Next.js image optimization to avoid CORS issues
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
