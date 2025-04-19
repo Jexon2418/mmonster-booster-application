@@ -8,9 +8,9 @@ export const DISCORD_CONFIG = {
   REDIRECT_URI: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI || "https://apply.mmonster.co/api/auth/callback/discord",
 }
 
-// N8N webhook configuration
-export const N8N_CONFIG = {
-  WEBHOOK_URL: process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL,
+// Discord webhook configuration
+export const WEBHOOK_CONFIG = {
+  DISCORD_AUTH: process.env.WEBHOOK_DISCORD_AUTH,
 }
 
 // Validate required environment variables

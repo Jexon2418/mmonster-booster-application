@@ -1,10 +1,13 @@
 export async function submitBoosterApplication(formData: any) {
   try {
-    // Замените URL на ваш n8n webhook URL
-    const n8nWebhookUrl =
-      process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || "https://your-n8n-instance.com/webhook/booster-application"
+    // Use the webhook URL directly from the environment variable
+    const webhookUrl = process.env.WEBHOOK_DISCORD_AUTH
 
-    const response = await fetch(n8nWebhookUrl, {
+    if (!webhookUrl) {
+      throw new Error("Webhook URL is not configured")
+    }
+
+    const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
