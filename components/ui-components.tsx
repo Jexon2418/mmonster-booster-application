@@ -10,11 +10,12 @@ interface FormSectionProps {
   title: string
   description?: string
   children: ReactNode
+  className?: string
 }
 
-export function FormSection({ title, description, children }: FormSectionProps) {
+export function FormSection({ title, description, children, className }: FormSectionProps) {
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${className || ""}`}>
       <div>
         <h2 className="text-xl font-semibold text-white">{title}</h2>
         {description && <p className="text-gray-400 mt-2">{description}</p>}
@@ -61,6 +62,7 @@ export function FormInput({ label, required = false, ...props }: FormInputProps)
       <input
         {...props}
         className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+        defaultValue={props.defaultValue || ""}
       />
     </div>
   )

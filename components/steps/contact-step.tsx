@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FormSection, FormButtons, FormInput } from "../ui-components"
 import type { FormData } from "../booster-application-form"
 
@@ -14,6 +14,19 @@ interface ContactStepProps {
 export function ContactStep({ formData, updateFormData, onContinue, onBack }: ContactStepProps) {
   const [discordId, setDiscordId] = useState(formData.discordId)
   const [telegram, setTelegram] = useState(formData.telegram)
+
+  // Pre-fill Discord ID with the authenticated user's Discord username if available
+  useEffect(() => {
+    if (formData.discordUser?.username && !discordId) {
+      const discordTag =
+        formData.discordUser.discriminator && formData.discordUser.discriminator !== "0"
+          ? `${formData.discordUser.username}#${formData.discordUser.discriminator}`
+          : formData.discordUser.username
+
+      setDiscordId(discordTag)
+      updateFormData({ discordId: discordTag })
+    }
+  }, [formData.discordUser, discordId, updateFormData])
 
   const handleContinue = () => {
     updateFormData({ discordId, telegram })

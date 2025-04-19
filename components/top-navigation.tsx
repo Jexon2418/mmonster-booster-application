@@ -26,6 +26,7 @@ export function TopNavigation({ onBack, onNext, currentStep, totalSteps, disable
         onClick={onNext}
         disabled={disableNext}
         className="px-4 py-2 bg-[#E53E3E] text-white rounded-md hover:bg-[#E53E3E]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-label={currentStep === totalSteps ? "Submit application" : "Go to next step"}
       >
         {currentStep === totalSteps ? "Submit" : "Next"}
       </button>

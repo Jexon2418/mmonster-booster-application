@@ -24,6 +24,7 @@ export function ClassificationStep({ formData, updateFormData, onContinue, onBac
     <FormSection
       title="Classification"
       description="Specify if you are an individual booster, represent a booster group/community, or a reseller."
+      className="classification-step"
     >
       <div className="space-y-4 mt-6">
         <FormRadio

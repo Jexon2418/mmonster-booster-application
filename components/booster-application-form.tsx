@@ -359,7 +359,15 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       case 3: // Discord verification success
         return false
       case 4: // Classification
-        return !formData.classification || !formData.joinedDiscord
+        // Check if the current step component has its own validation
+        const classificationStep = document.querySelector(".classification-step")
+        if (classificationStep) {
+          // If the Continue button is enabled in the step component, enable the Next button too
+          const continueButton = classificationStep.querySelector('button[type="submit"]:not(:disabled)')
+          return !continueButton
+        }
+        // Fallback to basic validation
+        return !formData.classification
       case 5: // Services
         return formData.services.length === 0
       case 6: // Games
