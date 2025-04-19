@@ -1,11 +1,34 @@
-import { Suspense } from "react"
+"use client"
+
+import { Suspense, useEffect, useState } from "react"
 import BoosterApplicationForm from "@/components/booster-application-form"
+import { useSearchParams } from "next/navigation"
 
 export default function Home() {
+  const [isDiscordCallback, setIsDiscordCallback] = useState(false)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // Проверяем, есть ли параметр code в URL, что указывает на возврат от Discord OAuth
+    const code = searchParams.get("code")
+    const state = searchParams.get("state")
+
+    if (code && state) {
+      console.log("Detected Discord OAuth callback with code and state")
+      setIsDiscordCallback(true)
+
+      // Очищаем URL от параметров OAuth без перезагрузки страницы
+      const url = new URL(window.location.href)
+      url.searchParams.delete("code")
+      url.searchParams.delete("state")
+      window.history.replaceState({}, document.title, url.toString())
+    }
+  }, [searchParams])
+
   return (
     <main className="min-h-screen bg-[#171923] flex items-center justify-center py-8">
       <Suspense fallback={<LoadingState />}>
-        <BoosterApplicationForm />
+        <BoosterApplicationForm initialDiscordCallback={isDiscordCallback} />
       </Suspense>
     </main>
   )

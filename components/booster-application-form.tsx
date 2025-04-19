@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { WelcomeStep } from "./steps/welcome-step"
 import { DiscordAuthStep } from "./steps/discord-auth-step"
 import { DiscordVerificationSuccessStep } from "./steps/discord-verification-success-step"
@@ -15,6 +15,7 @@ import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
 import { submitBoosterApplication } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 export type DiscordUser = {
   id: string
@@ -63,12 +64,17 @@ const initialFormData: FormData = {
   discordUser: null,
 }
 
-export default function BoosterApplicationForm() {
+interface BoosterApplicationFormProps {
+  initialDiscordCallback?: boolean
+}
+
+export default function BoosterApplicationForm({ initialDiscordCallback = false }: BoosterApplicationFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const { toast } = useToast()
+  const searchParams = useSearchParams()
 
   const updateFormData = useCallback((data: Partial<FormData>) => {
     setFormData((prev) => ({ ...prev, ...data }))
@@ -88,7 +94,39 @@ export default function BoosterApplicationForm() {
     }
   }
 
-  // Удаляем useEffect для обработки параметров URL, так как эта логика теперь в компоненте DiscordAuthStep
+  // Обработка возврата после аутентификации Discord
+  useEffect(() => {
+    // Если это возврат от Discord OAuth, переходим на шаг 2 (Discord Auth)
+    if (initialDiscordCallback) {
+      console.log("Setting step to Discord Auth (2) due to OAuth callback")
+      setCurrentStep(2)
+    }
+
+    // Проверяем, есть ли параметр discord_user в URL
+    const discordUserParam = searchParams.get("discord_user")
+    if (discordUserParam) {
+      try {
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
+
+        // Обновляем данные формы с информацией о Discord пользователе
+        updateFormData({
+          discordId: discordUser.fullDiscordTag,
+          discordUser: discordUser,
+        })
+
+        // Переходим на шаг успешной верификации Discord
+        console.log("Setting step to Discord Verification Success (3) due to discord_user param")
+        setCurrentStep(3)
+
+        // Очищаем URL от параметров
+        const url = new URL(window.location.href)
+        url.searchParams.delete("discord_user")
+        window.history.replaceState({}, document.title, url.toString())
+      } catch (e) {
+        console.error("Error parsing Discord user data:", e)
+      }
+    }
+  }, [initialDiscordCallback, searchParams, updateFormData])
 
   const handleSubmit = async () => {
     try {
