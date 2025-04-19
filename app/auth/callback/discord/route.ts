@@ -5,11 +5,13 @@ export async function GET(request: Request) {
   // Get the code from the URL query parameters
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
-  const state = searchParams.get("state")
+
+  // Extract the base URL from the request
+  const baseUrl = new URL(request.url).origin
 
   if (!code) {
     console.error("Missing authorization code from Discord")
-    return NextResponse.redirect(new URL("/?error=missing_code", request.url))
+    return NextResponse.redirect(`${baseUrl}/?error=missing_code`)
   }
 
   try {
@@ -31,9 +33,7 @@ export async function GET(request: Request) {
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text()
       console.error("Failed to exchange code for token:", errorData)
-      return NextResponse.redirect(
-        new URL(`/?error=${encodeURIComponent("Failed to authenticate with Discord")}`, request.url),
-      )
+      return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent("Failed to authenticate with Discord")}`)
     }
 
     const tokenData = await tokenResponse.json()
@@ -49,9 +49,7 @@ export async function GET(request: Request) {
     if (!userResponse.ok) {
       const errorData = await userResponse.text()
       console.error("Failed to fetch Discord user:", errorData)
-      return NextResponse.redirect(
-        new URL(`/?error=${encodeURIComponent("Failed to fetch Discord user data")}`, request.url),
-      )
+      return NextResponse.redirect(`${baseUrl}/?error=${encodeURIComponent("Failed to fetch Discord user data")}`)
     }
 
     const userData = await userResponse.json()
@@ -68,13 +66,12 @@ export async function GET(request: Request) {
     }
 
     // Encode the user data to pass it in the URL
-    // In a production app, you should use cookies or server sessions instead
     const encodedUserData = encodeURIComponent(JSON.stringify(formattedUserData))
 
     // Redirect back to the application with the user data
-    return NextResponse.redirect(new URL(`/?discord_user=${encodedUserData}`, request.url))
+    return NextResponse.redirect(`${baseUrl}/?discord_user=${encodedUserData}`)
   } catch (error) {
     console.error("Error handling Discord callback:", error)
-    return NextResponse.redirect(new URL("/?error=server_error", request.url))
+    return NextResponse.redirect(`${baseUrl}/?error=server_error`)
   }
 }

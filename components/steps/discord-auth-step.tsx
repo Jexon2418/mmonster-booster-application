@@ -46,10 +46,10 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     if (errorParam) {
       setError(decodeURIComponent(errorParam))
 
-      // Clean up the URL to remove the error parameter
-      const newUrl = new URL(window.location.href)
-      newUrl.searchParams.delete("error")
-      router.replace(newUrl.pathname + newUrl.search)
+      // Clean up the URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete("error")
+      window.history.replaceState({}, "", url)
     }
 
     // Handle successful Discord authentication
@@ -63,10 +63,10 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
           // You can store additional Discord user data if needed
         })
 
-        // Clean up the URL to remove the discord_user parameter
-        const newUrl = new URL(window.location.href)
-        newUrl.searchParams.delete("discord_user")
-        router.replace(newUrl.pathname + newUrl.search)
+        // Clean up the URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete("discord_user")
+        window.history.replaceState({}, "", url)
 
         // Automatically proceed to the next step
         onContinue()
@@ -75,7 +75,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
         setError("Failed to process Discord authentication data")
       }
     }
-  }, [discordUserParam, errorParam, updateFormData, onContinue, router])
+  }, [discordUserParam, errorParam, updateFormData, onContinue])
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
