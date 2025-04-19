@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import { supabase } from "@/lib/supabaseClient"
 import { Loader2, X, Upload, AlertCircle } from "lucide-react"
@@ -30,46 +30,65 @@ export function SupabaseFileUpload({
   maxFiles = 5,
   maxSizeMB = 3,
 }: SupabaseFileUploadProps) {
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(initialFiles)
+  // Use a ref to track if this is the first render
+  const isFirstRender = useRef(true)
+
+  // Filter out any invalid initial files (those without path or with empty values)
+  const validInitialFiles = initialFiles?.filter((file) => file && file.path && file.name && file.size) || []
+
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(validInitialFiles)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const maxSizeBytes = maxSizeMB * 1024 * 1024 // Convert MB to bytes
 
-  // Ensure all initial files have valid public URLs
+  // Process initial files only once on component mount
   useEffect(() => {
-    const updateFilesWithPublicUrls = async () => {
-      if (!initialFiles || initialFiles.length === 0) return
+    const processInitialFiles = async () => {
+      if (!validInitialFiles.length) return
 
-      const updatedFiles = await Promise.all(
-        initialFiles.map(async (file) => {
-          // If the file already has a valid URL that includes the Supabase URL, use it
-          if (file.url && file.url.includes(supabase.supabaseUrl)) {
-            return file
-          }
-
-          // Otherwise, generate a new public URL
-          try {
-            const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
-            return {
-              ...file,
-              url: data.publicUrl,
+      try {
+        const updatedFiles = await Promise.all(
+          validInitialFiles.map(async (file) => {
+            // If the file already has a valid URL, use it
+            if (file.url && (file.url.startsWith("http://") || file.url.startsWith("https://"))) {
+              return file
             }
-          } catch (error) {
-            console.error("Error generating public URL for file:", file.path, error)
-            return file
-          }
-        }),
-      )
 
-      setUploadedFiles(updatedFiles)
-      onFilesChange(updatedFiles)
+            // Otherwise, generate a new public URL
+            try {
+              const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
+              return {
+                ...file,
+                url: data.publicUrl,
+              }
+            } catch (error) {
+              console.error("Error generating public URL for file:", file.path, error)
+              return file
+            }
+          }),
+        )
+
+        // Only update state if there are valid files with URLs
+        if (updatedFiles.some((file) => file.url)) {
+          setUploadedFiles(updatedFiles)
+        }
+      } catch (error) {
+        console.error("Error processing initial files:", error)
+      }
     }
 
-    updateFilesWithPublicUrls()
-  }, [initialFiles, onFilesChange])
+    processInitialFiles()
+  }, []) // Empty dependency array - run only once on mount
 
+  // Notify parent component when files change, but avoid infinite loops
   useEffect(() => {
-    // Update parent component when files change
+    // Skip the first render to avoid unnecessary callbacks
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+
+    // Only call onFilesChange when we have actual files to report
     onFilesChange(uploadedFiles)
   }, [uploadedFiles, onFilesChange])
 
@@ -126,20 +145,17 @@ export function SupabaseFileUpload({
           name: file.name,
           size: file.size,
         })
-
-        console.log("File uploaded successfully:", {
-          path: filePath,
-          url: urlData.publicUrl,
-          name: file.name,
-        })
       } catch (error) {
         console.error("Error uploading file:", error)
         setError("Failed to upload file. Please try again.")
       }
     }
 
-    // Update state with new files
-    setUploadedFiles((prev) => [...prev, ...newFiles])
+    // Only update state if we have new files
+    if (newFiles.length > 0) {
+      setUploadedFiles((prev) => [...prev, ...newFiles])
+    }
+
     setIsUploading(false)
 
     // Reset the input value to allow uploading the same file again
@@ -215,7 +231,7 @@ export function SupabaseFileUpload({
       {uploadedFiles.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
           {uploadedFiles.map((file, index) => (
-            <div key={index} className="relative group">
+            <div key={`${file.path}-${index}`} className="relative group">
               <div className="relative h-32 w-full rounded-md overflow-hidden border border-[#4A5568] bg-[#1A202C]">
                 {file.url ? (
                   <Image
