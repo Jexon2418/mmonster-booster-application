@@ -1,8 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { FormSection, FormButtons, FormTextarea, FileUpload } from "../ui-components"
+import { FormSection, FormButtons, FormTextarea } from "../ui-components"
+import { SupabaseFileUpload } from "../supabase-file-upload"
 import type { FormData } from "../booster-application-form"
+
+interface UploadedFile {
+  url: string
+  path: string
+  name: string
+  size: number
+}
 
 interface ExperienceStepProps {
   formData: FormData
@@ -13,11 +21,23 @@ interface ExperienceStepProps {
 
 export function ExperienceStep({ formData, updateFormData, onContinue, onBack }: ExperienceStepProps) {
   const [experience, setExperience] = useState(formData.experience)
-  const [screenshots, setScreenshots] = useState<File[]>(formData.screenshots)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(formData.uploadedScreenshots || [])
+
+  // Get Discord ID from formData
+  const discordId = formData.discordUser?.id || "anonymous"
 
   const handleContinue = () => {
-    updateFormData({ experience, screenshots })
+    updateFormData({
+      experience,
+      uploadedScreenshots: uploadedFiles,
+      // Keep the screenshots array for backward compatibility
+      screenshots: [],
+    })
     onContinue()
+  }
+
+  const handleFilesChange = (files: UploadedFile[]) => {
+    setUploadedFiles(files)
   }
 
   return (
@@ -38,13 +58,16 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
         <div className="space-y-2">
           <h3 className="text-white">Proofs of Work as a Booster</h3>
           <p className="text-gray-400 text-sm">
-            If you have any proof of your work or evidence of your in-game achievements, you can upload a few
-            screenshots.
+            If you have any proof of your work or evidence of your in-game achievements, you can upload up to 5
+            screenshots (max 3MB each).
           </p>
-          <FileUpload
-            onFilesSelected={setScreenshots}
-            multiple
-            accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
+
+          <SupabaseFileUpload
+            discordId={discordId}
+            onFilesChange={handleFilesChange}
+            initialFiles={uploadedFiles}
+            maxFiles={5}
+            maxSizeMB={3}
           />
         </div>
 

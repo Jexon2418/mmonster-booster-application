@@ -27,12 +27,21 @@ export type DiscordUser = {
   fullDiscordTag: string
 }
 
+// Define the UploadedFile type
+export type UploadedFile = {
+  url: string
+  path: string
+  name: string
+  size: number
+}
+
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
   games: string[]
   experience: string
   screenshots: File[]
+  uploadedScreenshots?: UploadedFile[] // New field for Supabase Storage uploads
   discordId: string
   telegram: string
   fullName: string
@@ -54,6 +63,7 @@ const initialFormData: FormData = {
   games: [],
   experience: "",
   screenshots: [],
+  uploadedScreenshots: [], // Initialize as empty array
   discordId: "",
   telegram: "",
   fullName: "",
@@ -208,6 +218,11 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         submissionData.screenshotNames = submissionData.screenshots.map((file) => file.name)
         // Remove the actual files as they can't be serialized to JSON
         delete submissionData.screenshots
+      }
+
+      // Include the uploaded screenshots URLs and paths
+      if (submissionData.uploadedScreenshots && submissionData.uploadedScreenshots.length > 0) {
+        // Keep the uploadedScreenshots as is - it's already serializable
       }
 
       // Send data to n8n
