@@ -1,59 +1,58 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { FormSection, FormButtons } from "../ui-components"
-import { getDiscordAuthUrl, type DiscordUser } from "@/lib/discord-auth"
+import { useEffect, useState } from "react"
+import { FormSection, FormButtons, Alert } from "../ui-components"
+import { getDiscordAuthUrl } from "@/lib/discord-auth"
+import { useSearchParams } from "next/navigation"
+import type { FormData } from "../booster-application-form"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
   onBack: () => void
-  discordUser: DiscordUser | null
+  formData: FormData
+  updateFormData: (data: Partial<FormData>) => void
 }
 
-export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuthStepProps) {
-  const [isLoading, setIsLoading] = useState(false)
+export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }: DiscordAuthStepProps) {
+  const [discordAuthUrl, setDiscordAuthUrl] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const searchParams = useSearchParams()
 
-  // Add debug information when component loads
+  // Get Discord user data from URL if available
+  const discordUserParam = searchParams.get("discord_user")
+  const errorParam = searchParams.get("error")
+
   useEffect(() => {
-    // For client-side, we need to use hardcoded values since environment variables
-    // might not be properly exposed to the client
-    const clientId = "1362383105670774944" // Hardcoded client ID
-    const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Hardcoded redirect URI
+    // Initialize the Discord auth URL
+    const authUrl = getDiscordAuthUrl()
+    setDiscordAuthUrl(authUrl)
+    setIsLoading(false)
 
-    setDebugInfo(`
-      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${clientId ? `Set (first 5 chars: ${clientId.substring(0, 5)}...)` : "Not set"}
-      NEXT_PUBLIC_DISCORD_REDIRECT_URI: ${redirectUri || "Not set"}
-      NEXT_PUBLIC_RUNTIME_CHECK: 1
-    `)
-  }, [])
-
-  const handleDiscordAuth = () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Generate random state for security
-      const state = Math.random().toString(36).substring(2, 15)
-
-      // Save state in localStorage for verification when returning
-      if (typeof window !== "undefined") {
-        localStorage.setItem("discord_auth_state", state)
-      }
-
-      // Get authentication URL and redirect to it
-      const authUrl = getDiscordAuthUrl(state)
-      console.log("Discord auth URL:", authUrl)
-      window.location.href = authUrl
-    } catch (err) {
-      console.error("Discord auth error:", err)
-      setError(
-        "Error connecting to Discord. Please check environment variable settings or continue without authentication.",
-      )
-      setIsLoading(false)
+    // Handle error from callback
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam))
     }
-  }
+
+    // Handle successful Discord authentication
+    if (discordUserParam) {
+      try {
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam))
+
+        // Update form data with Discord user information
+        updateFormData({
+          discordId: discordUser.fullDiscordTag,
+          // You can store additional Discord user data if needed
+        })
+
+        // Automatically proceed to the next step
+        onContinue()
+      } catch (e) {
+        console.error("Error parsing Discord user data:", e)
+        setError("Failed to process Discord authentication data")
+      }
+    }
+  }, [discordUserParam, errorParam, updateFormData, onContinue])
 
   return (
     <FormSection
@@ -61,15 +60,9 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
       description="We require authentication with your Discord account. This helps us verify your identity and communicate with you throughout the application process."
     >
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-md p-4 mb-6 text-red-500">
-          <p>{error}</p>
-          {debugInfo && (
-            <details className="mt-2 text-xs">
-              <summary>Debug Information</summary>
-              <pre className="mt-2 p-2 bg-gray-800 rounded overflow-auto">{debugInfo}</pre>
-            </details>
-          )}
-        </div>
+        <Alert type="error">
+          <p>Authentication error: {error}</p>
+        </Alert>
       )}
 
       <div className="mt-8 bg-[#1E2533] rounded-md p-6">
@@ -79,27 +72,12 @@ export function DiscordAuthStep({ onContinue, onBack, discordUser }: DiscordAuth
           information.
         </p>
         <button
-          onClick={handleDiscordAuth}
+          onClick={() => (window.location.href = discordAuthUrl)}
           disabled={isLoading}
-          className="w-full py-3 bg-[#5865F2] text-white rounded-md hover:bg-[#5865F2]/90 transition-colors flex items-center justify-center disabled:opacity-70"
+          className="w-full py-3 bg-[#5865F2] text-white rounded-md hover:bg-[#5865F2]/90 transition-colors flex items-center justify-center disabled:opacity-50"
         >
           {isLoading ? (
-            <span className="flex items-center">
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Connecting...
-            </span>
+            "Loading..."
           ) : (
             <>
               <svg

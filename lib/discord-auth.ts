@@ -1,39 +1,113 @@
-// Type for Discord user data
-export interface DiscordUser {
-  id: string
-  username: string
-  discriminator: string
-  avatar: string | null
-  email?: string
-}
+"use server"
 
-// Scopes we request
-const SCOPES = ["identify", "email"]
+// Discord OAuth2 configuration
+const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET!
+const DISCORD_REDIRECT_URI = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!
 
-// Create authentication URL with verification
-export function getDiscordAuthUrl(state?: string) {
-  // Use hardcoded values for client-side
-  const clientId = "1362383105670774944" // Hardcoded client ID
-  const redirectUri = "http://139.59.129.132:3000/api/auth/discord/callback" // Hardcoded redirect URI
+// Discord API endpoints
+const DISCORD_API_URL = "https://discord.com/api/v10"
+const DISCORD_AUTH_URL = `https://discord.com/api/oauth2/authorize`
+const DISCORD_TOKEN_URL = `${DISCORD_API_URL}/oauth2/token`
+const DISCORD_USER_URL = `${DISCORD_API_URL}/users/@me`
 
-  console.log("Using Discord auth with:", { clientId, redirectUri })
+// Scopes needed for our application
+const SCOPES = ["identify", "email"].join(" ")
 
-  // Check that Client ID is not empty
-  if (!clientId) {
-    console.error("Discord Client ID is not properly set")
-    throw new Error("Discord Client ID is not properly configured")
-  }
-
+/**
+ * Generates the Discord OAuth2 authorization URL
+ * @returns The URL to redirect the user to for Discord authentication
+ */
+export function getDiscordAuthUrl() {
   const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: DISCORD_REDIRECT_URI,
     response_type: "code",
-    scope: SCOPES.join(" "),
+    scope: SCOPES,
   })
 
-  if (state) {
-    params.append("state", state)
+  return `${DISCORD_AUTH_URL}?${params.toString()}`
+}
+
+/**
+ * Exchanges an authorization code for an access token
+ * @param code The authorization code from Discord
+ * @returns The access token and related information
+ */
+async function exchangeCodeForToken(code: string) {
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    client_secret: DISCORD_CLIENT_SECRET,
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: DISCORD_REDIRECT_URI,
+  })
+
+  const response = await fetch(DISCORD_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(`Failed to exchange code for token: ${JSON.stringify(error)}`)
   }
 
-  return `https://discord.com/api/oauth2/authorize?${params.toString()}`
+  return response.json()
+}
+
+/**
+ * Fetches the user's Discord profile information
+ * @param accessToken The Discord access token
+ * @returns The user's Discord profile
+ */
+async function fetchDiscordUser(accessToken: string) {
+  const response = await fetch(DISCORD_USER_URL, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(`Failed to fetch Discord user: ${JSON.stringify(error)}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Handles the OAuth2 callback from Discord
+ * @param code The authorization code from Discord
+ * @returns The user's Discord profile information
+ */
+export async function handleDiscordCallback(code: string) {
+  try {
+    // Exchange the code for an access token
+    const tokenData = await exchangeCodeForToken(code)
+
+    // Use the access token to fetch the user's profile
+    const userData = await fetchDiscordUser(tokenData.access_token)
+
+    return {
+      success: true,
+      user: {
+        id: userData.id,
+        username: userData.username,
+        discriminator: userData.discriminator,
+        avatar: userData.avatar,
+        email: userData.email,
+        fullDiscordTag: `${userData.username}#${userData.discriminator || "0000"}`,
+      },
+    }
+  } catch (error) {
+    console.error("Discord authentication error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error during Discord authentication",
+    }
+  }
 }
