@@ -36,7 +36,7 @@ interface FormButtonsProps {
 
 export function FormButtons({ onBack, onContinue, continueText = "Continue", disabled = false }: FormButtonsProps) {
   return (
-    <div className="mt-8 space-y-4">
+    <div className="mt-8">
       <button
         onClick={onContinue}
         disabled={disabled}

@@ -1,6 +1,6 @@
 "use client"
 
-import { FormSection, FormButtons } from "../ui-components"
+import { FormSection } from "../ui-components"
 import Image from "next/image"
 import type { DiscordUser } from "../booster-application-form"
 import { Loader2 } from "lucide-react"
@@ -76,23 +76,32 @@ export function DiscordVerificationSuccessStep({
             and communicate with you throughout the application process.
           </p>
 
-          {isLoadingDraft ? (
-            <div className="mt-4 flex items-center text-gray-400">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span>Loading your saved progress...</span>
-            </div>
-          ) : (
-            <div className="mt-4 bg-[#2D3748]/50 p-3 rounded-md border border-[#4A5568]/50">
+          {!isLoadingDraft ? (
+            <div className="mt-4 bg-[#1E2533] p-3 rounded-md border border-[#4A5568]/50">
               <p className="text-gray-300 text-sm">
                 <span className="font-medium text-white">Note:</span> If you have a previously saved application, your
                 answers have been loaded. Please click "Continue" to proceed through each step of the form.
               </p>
             </div>
+          ) : (
+            <div className="mt-4 flex items-center text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span>Loading your saved progress...</span>
+            </div>
           )}
         </div>
       </div>
 
-      {onContinue && <FormButtons onContinue={onContinue} onBack={onBack} />}
+      {onContinue && (
+        <div className="mt-8">
+          <button
+            onClick={onContinue}
+            className="w-full py-3 bg-[#E53E3E] text-white rounded-md hover:bg-[#E53E3E]/90 transition-colors"
+          >
+            Continue
+          </button>
+        </div>
+      )}
     </FormSection>
   )
 }
