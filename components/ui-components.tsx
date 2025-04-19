@@ -147,8 +147,24 @@ interface FormRadioProps {
 }
 
 export function FormRadio({ id, name, label, value, checked, onChange }: FormRadioProps) {
+  // Create a handler for clicking the entire container
+  const handleContainerClick = () => {
+    // Create a synthetic event object that mimics a change event
+    const syntheticEvent = {
+      target: {
+        value: value,
+      },
+    } as React.ChangeEvent<HTMLInputElement>
+
+    // Call the onChange handler with our synthetic event
+    onChange(syntheticEvent)
+  }
+
   return (
-    <div className="flex items-center p-4 border border-[#4A5568] rounded-md bg-[#2D3748] hover:bg-[#2D3748]/80 transition-colors">
+    <div
+      className={`flex items-center p-4 border ${checked ? "border-[#E53E3E]" : "border-[#4A5568]"} rounded-md bg-[#2D3748] hover:bg-[#2D3748]/80 transition-colors cursor-pointer`}
+      onClick={handleContainerClick}
+    >
       <input
         type="radio"
         id={id}
@@ -156,9 +172,12 @@ export function FormRadio({ id, name, label, value, checked, onChange }: FormRad
         value={value}
         checked={checked}
         onChange={onChange}
-        className="h-5 w-5 text-[#E53E3E] border-[#4A5568] focus:ring-[#E53E3E]/50 bg-[#2D3748]"
+        className="h-5 w-5 text-[#E53E3E] border-[#4A5568] focus:ring-[#E53E3E]/50 bg-[#2D3748] cursor-pointer"
+        // Prevent the click event from bubbling up to the container
+        // which would trigger handleContainerClick again
+        onClick={(e) => e.stopPropagation()}
       />
-      <Label htmlFor={id} className="ml-3 text-white cursor-pointer">
+      <Label htmlFor={id} className="ml-3 text-white cursor-pointer w-full">
         {label}
       </Label>
     </div>

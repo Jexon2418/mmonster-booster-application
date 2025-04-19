@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef } from "react"
-import { WelcomeStep } from "./steps/welcome-step"
 import { DiscordAuthStep } from "./steps/discord-auth-step"
 import { DiscordVerificationSuccessStep } from "./steps/discord-verification-success-step"
 import { ClassificationStep } from "./steps/classification-step"
@@ -153,16 +152,16 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             (draftData.classification || draftData.services?.length > 0 || draftData.games?.length > 0)
           ) {
             // Determine the furthest step the user has completed
-            let furthestStep = 3
+            let furthestStep = 2
 
-            if (draftData.classification) furthestStep = Math.max(furthestStep, 4)
-            if (draftData.services?.length > 0) furthestStep = Math.max(furthestStep, 5)
-            if (draftData.games?.length > 0) furthestStep = Math.max(furthestStep, 6)
-            if (draftData.experience) furthestStep = Math.max(furthestStep, 7)
-            if (draftData.discordId || draftData.telegram) furthestStep = Math.max(furthestStep, 8)
-            if (draftData.fullName || draftData.country) furthestStep = Math.max(furthestStep, 9)
-            if (draftData.joinedDiscord) furthestStep = Math.max(furthestStep, 10)
-            if (draftData.acceptCrypto) furthestStep = Math.max(furthestStep, 11)
+            if (draftData.classification) furthestStep = Math.max(furthestStep, 3)
+            if (draftData.services?.length > 0) furthestStep = Math.max(furthestStep, 4)
+            if (draftData.games?.length > 0) furthestStep = Math.max(furthestStep, 5)
+            if (draftData.experience) furthestStep = Math.max(furthestStep, 6)
+            if (draftData.discordId || draftData.telegram) furthestStep = Math.max(furthestStep, 7)
+            if (draftData.fullName || draftData.country) furthestStep = Math.max(furthestStep, 8)
+            if (draftData.joinedDiscord) furthestStep = Math.max(furthestStep, 9)
+            if (draftData.acceptCrypto) furthestStep = Math.max(furthestStep, 10)
 
             // Set the step and mark it as set from draft
             setCurrentStep(furthestStep)
@@ -180,7 +179,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
   // Improved nextStep function with better state management
   const nextStep = useCallback(() => {
-    if (currentStep < 11) {
+    if (currentStep < 10) {
       // Save current progress before moving to next step
       if (formData.discordUser?.id) {
         saveDraftToSupabase(formData.discordUser.id, formData.discordUser.email || null, formData).catch((error) => {
@@ -254,9 +253,9 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             // Load draft data if available
             loadDraft(savedDiscordUser.id)
 
-            // If we're on step 1 or 2, move to step 3 (Discord verification success)
-            if (currentStep <= 2) {
-              setCurrentStep(3)
+            // If we're on step 1, move to step 2 (Discord verification success)
+            if (currentStep <= 1) {
+              setCurrentStep(2)
             }
           } else {
             // If session is invalid, clear the user data
@@ -278,10 +277,10 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       // No saved user, just mark as initialized
       setIsInitialized(true)
 
-      // If this is a return from Discord OAuth, set step to 2
+      // If this is a return from Discord OAuth, set step to 1
       if (initialDiscordCallback) {
-        console.log("Setting step to Discord Auth (2) due to OAuth callback")
-        setCurrentStep(2)
+        console.log("Setting step to Discord Auth (1) due to OAuth callback")
+        setCurrentStep(1)
       }
     }
   }, [initialDiscordCallback, updateFormData, loadDraft, currentStep, toast])
@@ -356,9 +355,9 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
   const isButtonDisabled = () => {
     switch (currentStep) {
-      case 3: // Discord verification success
+      case 2: // Discord verification success
         return false
-      case 4: // Classification
+      case 3: // Classification
         // Check if the current step component has its own validation
         const classificationStep = document.querySelector(".classification-step")
         if (classificationStep) {
@@ -368,19 +367,19 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         }
         // Fallback to basic validation
         return !formData.classification
-      case 5: // Services
+      case 4: // Services
         return formData.services.length === 0
-      case 6: // Games
+      case 5: // Games
         return formData.games.length === 0
-      case 7: // Experience
+      case 6: // Experience
         return !formData.experience
-      case 8: // Contact
+      case 7: // Contact
         return !formData.discordId
-      case 9: // Personal
+      case 8: // Personal
         return !formData.fullName || !formData.dateOfBirth || !formData.country || !formData.language
-      case 10: // Discord server
+      case 9: // Discord server
         return !formData.joinedDiscord
-      case 11: // Crypto
+      case 10: // Crypto
         return !formData.acceptCrypto || isSubmitting
       default:
         return false
@@ -390,8 +389,6 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <WelcomeStep onContinue={nextStep} />
-      case 2:
         return (
           <DiscordAuthStep
             onContinue={nextStep}
@@ -400,7 +397,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             updateFormData={updateFormData}
           />
         )
-      case 3:
+      case 2:
         return (
           <DiscordVerificationSuccessStep
             onContinue={nextStep}
@@ -408,7 +405,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             formData={{ ...formData, isLoadingDraft }}
           />
         )
-      case 4:
+      case 3:
         return (
           <ClassificationStep
             formData={formData}
@@ -417,25 +414,25 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             onBack={prevStep}
           />
         )
-      case 5:
+      case 4:
         return (
           <ServicesStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 6:
+      case 5:
         return <GamesStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
-      case 7:
+      case 6:
         return (
           <ExperienceStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 8:
+      case 7:
         return (
           <ContactStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 9:
+      case 8:
         return (
           <PersonalStep formData={formData} updateFormData={updateFormData} onContinue={nextStep} onBack={prevStep} />
         )
-      case 10:
+      case 9:
         return (
           <DiscordServerStep
             formData={formData}
@@ -444,7 +441,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             onBack={prevStep}
           />
         )
-      case 11:
+      case 10:
         return (
           <CryptoStep
             formData={formData}
@@ -455,21 +452,28 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           />
         )
       default:
-        return <WelcomeStep onContinue={nextStep} />
+        return (
+          <DiscordAuthStep
+            onContinue={nextStep}
+            onBack={prevStep}
+            formData={formData}
+            updateFormData={updateFormData}
+          />
+        )
     }
   }
 
   return (
     <div className="w-full max-w-3xl px-4">
       {isDiscordAuthenticated() && <DiscordUserDisplay user={formData.discordUser} onLogout={handleLogout} />}
-      <StepIndicator currentStep={currentStep} totalSteps={11} />
+      <StepIndicator currentStep={currentStep} totalSteps={10} />
       <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
         {currentStep > 1 && (
           <TopNavigation
             onBack={prevStep}
             onNext={nextStep}
             currentStep={currentStep}
-            totalSteps={11}
+            totalSteps={10}
             disableNext={isButtonDisabled()}
           />
         )}

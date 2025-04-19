@@ -34,12 +34,12 @@ export default function Home() {
   )
 }
 
-// Простой компонент загрузки, который будет отображаться во время загрузки данных
+// Update the LoadingState component to reflect the new total steps
 function LoadingState() {
   return (
     <div className="w-full max-w-3xl px-4">
       <div className="flex justify-center space-x-2">
-        {Array.from({ length: 11 }, (_, i) => (
+        {Array.from({ length: 10 }, (_, i) => (
           <div key={i} className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-600 text-gray-300">
             {i + 1}
           </div>

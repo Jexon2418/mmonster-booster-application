@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { FormSection, FormButtons, Alert } from "../ui-components"
+import { FormSection, Alert } from "../ui-components"
 import { useSearchParams } from "next/navigation"
 import type { FormData, DiscordUser } from "../booster-application-form"
 import { saveDiscordUser } from "@/lib/auth-service"
+import Image from "next/image"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
@@ -118,22 +119,33 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
   }
 
   return (
-    <FormSection
-      title="Discord Authentication"
-      description="We require authentication with your Discord account. This helps us verify your identity and communicate with you throughout the application process."
-    >
+    <FormSection title="" description="">
+      <div className="flex flex-col items-center justify-center mb-8">
+        <div className="w-64 h-24 relative mb-6">
+          <Image
+            src="https://mmonster.co/media/4c/80/67/1729440457/mmonster_logo.svg"
+            alt="MMOnster Logo"
+            fill
+            style={{ objectFit: "contain" }}
+            priority
+          />
+        </div>
+
+        <h2 className="text-xl font-semibold text-white text-center mb-4">Welcome to Mmonster!</h2>
+        <p className="text-gray-400 text-center mb-6">
+          This application is for players who want to join Mmonster as service providers and help our clients in online
+          games. Before you can fill out the form, please log in with your Discord account so we can get to know you
+          better.
+        </p>
+      </div>
+
       {error && (
         <Alert type="error">
           <p>Authentication error: {error}</p>
         </Alert>
       )}
 
-      <div className="mt-8 bg-[#1E2533] rounded-md p-6">
-        <h3 className="text-center text-lg font-medium mb-4">Connect Your Discord Account</h3>
-        <p className="text-center text-gray-400 text-sm mb-6">
-          Click the button below to securely authenticate with Discord. We'll only access your basic profile
-          information.
-        </p>
+      <div className="mt-4 bg-[#1E2533] rounded-md p-6">
         <button
           onClick={handleDiscordAuth}
           disabled={isLoading || !discordAuthUrl || configError}
@@ -173,26 +185,21 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
                   fill="currentColor"
                 />
               </svg>
-              Connect with Discord
+              Login with Discord
             </>
           )}
         </button>
-
-        <div className="flex items-center justify-center my-4">
-          <div className="flex-grow border-t border-gray-700"></div>
-          <span className="mx-4 text-gray-500 text-sm">or</span>
-          <div className="flex-grow border-t border-gray-700"></div>
-        </div>
-
-        <button
-          onClick={onContinue}
-          className="w-full py-3 bg-transparent border border-gray-700 text-white rounded-md hover:bg-gray-800 transition-colors"
-        >
-          Continue without Discord authentication
-        </button>
       </div>
 
-      <FormButtons onContinue={onContinue} onBack={onBack} />
+      {/* Temporary skip button for testing */}
+      <div className="mt-4 text-center">
+        <button
+          onClick={onContinue}
+          className="px-4 py-2 text-xs text-gray-400 border border-gray-700 rounded-md hover:bg-gray-800 transition-colors"
+        >
+          [TEMP] Skip Discord Login for Testing
+        </button>
+      </div>
     </FormSection>
   )
 }
