@@ -3,6 +3,10 @@ import type { DiscordUser } from "@/components/booster-application-form"
 
 // Key for storing Discord user in localStorage
 const DISCORD_USER_KEY = "discord_user"
+// Key for storing session timestamp
+const SESSION_TIMESTAMP_KEY = "discord_session_timestamp"
+// Session expiration time (7 days in milliseconds)
+const SESSION_EXPIRATION = 7 * 24 * 60 * 60 * 1000
 
 /**
  * Saves Discord user to localStorage and Supabase auth metadata
@@ -16,6 +20,8 @@ export async function saveDiscordUser(user: DiscordUser): Promise<boolean> {
 
     // Save to localStorage for immediate access
     localStorage.setItem(DISCORD_USER_KEY, JSON.stringify(user))
+    // Save session timestamp
+    localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString())
 
     // Check if user exists in Supabase
     const { data: existingUser } = await supabase
@@ -73,8 +79,22 @@ export async function saveDiscordUser(user: DiscordUser): Promise<boolean> {
  */
 export function getDiscordUser(): DiscordUser | null {
   try {
+    // Check if session is expired
+    const timestamp = localStorage.getItem(SESSION_TIMESTAMP_KEY)
+    if (timestamp) {
+      const sessionAge = Date.now() - Number.parseInt(timestamp)
+      if (sessionAge > SESSION_EXPIRATION) {
+        // Session expired, clear it
+        clearDiscordUser()
+        return null
+      }
+    }
+
     const userData = localStorage.getItem(DISCORD_USER_KEY)
     if (!userData) return null
+
+    // Update session timestamp
+    localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString())
 
     return JSON.parse(userData) as DiscordUser
   } catch (error) {
@@ -89,6 +109,7 @@ export function getDiscordUser(): DiscordUser | null {
 export function clearDiscordUser(): void {
   try {
     localStorage.removeItem(DISCORD_USER_KEY)
+    localStorage.removeItem(SESSION_TIMESTAMP_KEY)
   } catch (error) {
     console.error("Error clearing Discord user:", error)
   }
@@ -108,6 +129,17 @@ export async function verifyDiscordSession(userId: string): Promise<boolean> {
   try {
     if (!userId) return false
 
+    // Check if session is expired
+    const timestamp = localStorage.getItem(SESSION_TIMESTAMP_KEY)
+    if (timestamp) {
+      const sessionAge = Date.now() - Number.parseInt(timestamp)
+      if (sessionAge > SESSION_EXPIRATION) {
+        // Session expired, clear it
+        clearDiscordUser()
+        return false
+      }
+    }
+
     // Check if user exists in Supabase
     const { data, error } = await supabase.from("discord_users").select("discord_id").eq("discord_id", userId).single()
 
@@ -116,9 +148,23 @@ export async function verifyDiscordSession(userId: string): Promise<boolean> {
       return false
     }
 
+    // Update session timestamp
+    localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString())
+
     return true
   } catch (error) {
     console.error("Error in verifyDiscordSession:", error)
     return false
+  }
+}
+
+/**
+ * Refreshes the session timestamp
+ */
+export function refreshSession(): void {
+  try {
+    localStorage.setItem(SESSION_TIMESTAMP_KEY, Date.now().toString())
+  } catch (error) {
+    console.error("Error refreshing session:", error)
   }
 }

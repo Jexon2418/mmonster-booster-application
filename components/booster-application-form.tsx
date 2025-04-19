@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { WelcomeStep } from "./steps/welcome-step"
 import { DiscordAuthStep } from "./steps/discord-auth-step"
 import { DiscordVerificationSuccessStep } from "./steps/discord-verification-success-step"
@@ -84,52 +84,88 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
-  const updateFormData = useCallback((data: Partial<FormData>) => {
-    setFormData((prev) => {
-      const updatedData = { ...prev, ...data }
+  // Use refs to track initialization state and prevent duplicate operations
+  const initRef = useRef(false)
+  const draftLoadedRef = useRef(false)
+  const stepSetFromDraftRef = useRef(false)
 
-      // If we have a Discord ID, save the draft
-      if (updatedData.discordUser?.id) {
-        saveDraftToSupabase(updatedData.discordUser.id, updatedData.discordUser.email || null, updatedData).catch(
-          (error) => {
-            console.error("Error saving draft:", error)
-          },
-        )
-      }
+  // Improved updateFormData function to ensure complete form data is saved
+  const updateFormData = useCallback(
+    (data: Partial<FormData>) => {
+      setFormData((prev) => {
+        const updatedData = { ...prev, ...data }
 
-      return updatedData
-    })
-  }, [])
+        // Only save draft if we're initialized and have a Discord user
+        if (isInitialized && updatedData.discordUser?.id) {
+          // Ensure we're saving the complete form data
+          saveDraftToSupabase(updatedData.discordUser.id, updatedData.discordUser.email || null, updatedData).catch(
+            (error) => {
+              console.error("Error saving draft:", error)
+            },
+          )
+        }
 
-  // Function to load draft application
+        return updatedData
+      })
+    },
+    [isInitialized],
+  )
+
+  // Improved loadDraft function with better state management
   const loadDraft = useCallback(
     async (discordId: string) => {
-      if (!discordId) return
+      if (!discordId || draftLoadedRef.current) return
 
       setIsLoadingDraft(true)
       try {
         const draftData = await loadDraftFromSupabase(discordId)
 
         if (draftData) {
+          // Mark draft as loaded to prevent duplicate loads
+          draftLoadedRef.current = true
+
           // Merge the draft data with the current form data
-          setFormData((prevData) => ({
-            ...prevData,
-            ...draftData,
-            // Ensure Discord user data is preserved
-            discordUser: prevData.discordUser,
-          }))
+          setFormData((prevData) => {
+            const mergedData = {
+              ...prevData,
+              ...draftData,
+              // Ensure Discord user data is preserved
+              discordUser: prevData.discordUser,
+            }
+
+            return mergedData
+          })
 
           toast({
             title: "Draft Loaded",
             description: "Your previous application progress has been restored.",
           })
 
-          // If the draft has data beyond step 3, move to step 4
-          if (draftData.classification || draftData.services?.length > 0 || draftData.games?.length > 0) {
-            setCurrentStep(4)
+          // If the draft has data beyond step 3 and we haven't set the step yet,
+          // move to the appropriate step
+          if (
+            !stepSetFromDraftRef.current &&
+            (draftData.classification || draftData.services?.length > 0 || draftData.games?.length > 0)
+          ) {
+            // Determine the furthest step the user has completed
+            let furthestStep = 3
+
+            if (draftData.classification) furthestStep = Math.max(furthestStep, 4)
+            if (draftData.services?.length > 0) furthestStep = Math.max(furthestStep, 5)
+            if (draftData.games?.length > 0) furthestStep = Math.max(furthestStep, 6)
+            if (draftData.experience) furthestStep = Math.max(furthestStep, 7)
+            if (draftData.discordId || draftData.telegram) furthestStep = Math.max(furthestStep, 8)
+            if (draftData.fullName || draftData.country) furthestStep = Math.max(furthestStep, 9)
+            if (draftData.joinedDiscord) furthestStep = Math.max(furthestStep, 10)
+            if (draftData.acceptCrypto) furthestStep = Math.max(furthestStep, 11)
+
+            // Set the step and mark it as set from draft
+            setCurrentStep(furthestStep)
+            stepSetFromDraftRef.current = true
           }
         }
       } catch (error) {
@@ -141,7 +177,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     [toast],
   )
 
-  // Autosave when moving to next step
+  // Improved nextStep function with better state management
   const nextStep = useCallback(() => {
     if (currentStep < 11) {
       // Save current progress before moving to next step
@@ -151,20 +187,55 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         })
       }
 
-      setCurrentStep(currentStep + 1)
+      setCurrentStep((prevStep) => prevStep + 1)
       window.scrollTo(0, 0)
     }
   }, [currentStep, formData])
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
+      setCurrentStep((prevStep) => prevStep - 1)
       window.scrollTo(0, 0)
     }
-  }
+  }, [currentStep])
 
-  // Check for existing Discord session on mount
+  // Separate useEffect for handling Discord OAuth callback
   useEffect(() => {
+    // Check for discord_user param in URL
+    const discordUserParam = searchParams.get("discord_user")
+    if (discordUserParam) {
+      try {
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
+
+        // Save the Discord user to localStorage and Supabase
+        saveDiscordUser(discordUser)
+
+        // Update form data with Discord user info
+        updateFormData({
+          discordId: discordUser.fullDiscordTag,
+          discordUser: discordUser,
+        })
+
+        // Move to Discord verification success step
+        console.log("Setting step to Discord Verification Success (3) due to discord_user param")
+        setCurrentStep(3)
+
+        // Clean up URL params
+        const url = new URL(window.location.href)
+        url.searchParams.delete("discord_user")
+        window.history.replaceState({}, document.title, url.toString())
+      } catch (e) {
+        console.error("Error parsing Discord user data:", e)
+      }
+    }
+  }, [searchParams, updateFormData])
+
+  // Separate useEffect for initializing the form with existing session
+  useEffect(() => {
+    // Only run this once
+    if (initRef.current) return
+    initRef.current = true
+
     // First check if we have a Discord user in localStorage
     const savedDiscordUser = getDiscordUser()
 
@@ -194,58 +265,35 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
               description: "Your Discord session has expired. Please log in again.",
             })
           }
+
+          // Mark as initialized after session check
+          setIsInitialized(true)
         })
         .catch((error) => {
           console.error("Error verifying Discord session:", error)
-          // On error, we'll keep the user logged in but log the error
+          setIsInitialized(true)
         })
-    }
+    } else {
+      // No saved user, just mark as initialized
+      setIsInitialized(true)
 
-    // Then check if this is a return from Discord OAuth
-    if (initialDiscordCallback) {
-      console.log("Setting step to Discord Auth (2) due to OAuth callback")
-      setCurrentStep(2)
-    }
-
-    // Check for discord_user param in URL
-    const discordUserParam = searchParams.get("discord_user")
-    if (discordUserParam) {
-      try {
-        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
-
-        // Save the Discord user to localStorage and Supabase
-        saveDiscordUser(discordUser)
-
-        // Update form data with Discord user info
-        updateFormData({
-          discordId: discordUser.fullDiscordTag,
-          discordUser: discordUser,
-        })
-
-        // Load draft data if available
-        loadDraft(discordUser.id)
-
-        // Move to Discord verification success step
-        console.log("Setting step to Discord Verification Success (3) due to discord_user param")
-        setCurrentStep(3)
-
-        // Clean up URL params
-        const url = new URL(window.location.href)
-        url.searchParams.delete("discord_user")
-        window.history.replaceState({}, document.title, url.toString())
-      } catch (e) {
-        console.error("Error parsing Discord user data:", e)
+      // If this is a return from Discord OAuth, set step to 2
+      if (initialDiscordCallback) {
+        console.log("Setting step to Discord Auth (2) due to OAuth callback")
+        setCurrentStep(2)
       }
     }
-  }, [initialDiscordCallback, searchParams, updateFormData, loadDraft, currentStep, toast])
+  }, [initialDiscordCallback, updateFormData, loadDraft, currentStep, toast])
 
   // Add a logout handler function
   const handleLogout = useCallback(() => {
     // Clear Discord user data
     clearDiscordUser()
 
-    // Reset form data
+    // Reset form data and refs
     setFormData(initialFormData)
+    draftLoadedRef.current = false
+    stepSetFromDraftRef.current = false
 
     // Return to first step
     setCurrentStep(1)
@@ -290,6 +338,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
       // Reset form or show success page
       setFormData(initialFormData)
+      draftLoadedRef.current = false
+      stepSetFromDraftRef.current = false
       setCurrentStep(1)
     } catch (error) {
       console.error("Error submitting form:", error)

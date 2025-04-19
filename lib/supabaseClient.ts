@@ -36,13 +36,29 @@ export async function saveDraftToSupabase(
       return false
     }
 
+    // Remove circular references and non-serializable data
+    const cleanedData = JSON.parse(
+      JSON.stringify(applicationData, (key, value) => {
+        // Skip File objects which can't be serialized
+        if (value instanceof File) {
+          return undefined
+        }
+        return value
+      }),
+    )
+
     // Check if a draft already exists for this Discord ID
-    const { data: existingDraft } = await supabase
+    const { data: existingDraft, error: queryError } = await supabase
       .from("draft_applications")
       .select("id")
       .eq("discord_id", discordId)
       .eq("status", "draft")
       .maybeSingle()
+
+    if (queryError) {
+      console.error("Error querying draft application:", queryError)
+      return false
+    }
 
     const now = new Date().toISOString()
 
@@ -52,7 +68,7 @@ export async function saveDraftToSupabase(
         .from("draft_applications")
         .update({
           email,
-          application_data: applicationData,
+          application_data: cleanedData,
           updated_at: now,
         })
         .eq("id", existingDraft.id)
@@ -66,7 +82,7 @@ export async function saveDraftToSupabase(
       const { error } = await supabase.from("draft_applications").insert({
         discord_id: discordId,
         email,
-        application_data: applicationData,
+        application_data: cleanedData,
         status: "draft",
         created_at: now,
         updated_at: now,

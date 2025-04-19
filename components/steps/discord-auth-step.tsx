@@ -77,20 +77,29 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
 
         // Save Discord user to localStorage and Supabase
         saveDiscordUser(discordUser)
+          .then((success) => {
+            if (success) {
+              // Update form data with Discord user info
+              updateFormData({
+                discordId: discordUser.fullDiscordTag,
+                discordUser,
+              })
 
-        // Update form data with Discord user info
-        updateFormData({
-          discordId: discordUser.fullDiscordTag,
-          discordUser: discordUser,
-        })
+              // Clean up URL params
+              const url = new URL(window.location.href)
+              url.searchParams.delete("discord_user")
+              window.history.replaceState({}, "", url)
 
-        // Clean up URL params
-        const url = new URL(window.location.href)
-        url.searchParams.delete("discord_user")
-        window.history.replaceState({}, "", url)
-
-        // Move to next step
-        onContinue()
+              // Move to next step
+              onContinue()
+            } else {
+              setError("Failed to save Discord user data. Please try again.")
+            }
+          })
+          .catch((error) => {
+            console.error("Error saving Discord user:", error)
+            setError("An error occurred during authentication. Please try again.")
+          })
       } catch (e) {
         console.error("Error parsing Discord user data:", e)
         setError("Failed to process Discord authentication data")
@@ -100,7 +109,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
 
   const handleDiscordAuth = () => {
     if (discordAuthUrl) {
-      // Сохраняем текущий URL для возврата после аутентификации
+      // Save current URL for return after authentication
       sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
       window.location.href = discordAuthUrl
     } else {
