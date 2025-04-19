@@ -14,9 +14,8 @@ import { DiscordServerStep } from "./steps/discord-server-step"
 import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
 import { submitBoosterApplication } from "@/lib/api"
-import { useSearchParams } from "next/navigation"
-import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
+import { useSearchParams } from "next/navigation"
 
 export type DiscordUser = {
   id: string
@@ -27,30 +26,12 @@ export type DiscordUser = {
   fullDiscordTag: string
 }
 
-// Define the UploadedFile type
-export type UploadedFile = {
-  url: string
-  path: string
-  name: string
-  size: number
-}
-
-// Define the MarketplaceProfiles type
-export type MarketplaceProfiles = {
-  funpay?: string
-  g2g?: string
-  eldorado?: string
-  other?: string
-}
-
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
   games: string[]
   experience: string
   screenshots: File[]
-  uploadedScreenshots?: UploadedFile[] // Supabase Storage uploads
-  marketplaceProfiles?: MarketplaceProfiles // Marketplace profiles
   discordId: string
   telegram: string
   fullName: string
@@ -63,7 +44,6 @@ export type FormData = {
   submissionDate?: string
   status?: "pending" | "approved" | "rejected"
   discordUser?: DiscordUser | null
-  isLoadingDraft?: boolean
 }
 
 const initialFormData: FormData = {
@@ -72,13 +52,6 @@ const initialFormData: FormData = {
   games: [],
   experience: "",
   screenshots: [],
-  uploadedScreenshots: [], // Initialize as empty array
-  marketplaceProfiles: {
-    funpay: "",
-    g2g: "",
-    eldorado: "",
-    other: "",
-  },
   discordId: "",
   telegram: "",
   fullName: "",
@@ -100,84 +73,19 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
   const [formData, setFormData] = useState<FormData>(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const { toast } = useToast()
   const searchParams = useSearchParams()
 
   const updateFormData = useCallback((data: Partial<FormData>) => {
-    setFormData((prev) => {
-      const updatedData = { ...prev, ...data }
-
-      // If we have a Discord ID, save the draft
-      if (updatedData.discordUser?.id) {
-        saveDraftToSupabase(updatedData.discordUser.id, updatedData.discordUser.email || null, updatedData).catch(
-          (error) => {
-            console.error("Error saving draft:", error)
-          },
-        )
-      }
-
-      return updatedData
-    })
+    setFormData((prev) => ({ ...prev, ...data }))
   }, [])
 
-  // Function to load draft application
-  const loadDraft = useCallback(
-    async (discordId: string) => {
-      if (!discordId) return
-
-      setIsLoadingDraft(true)
-      try {
-        const draftData = await loadDraftFromSupabase(discordId)
-
-        if (draftData) {
-          // Merge the draft data with the current form data
-          setFormData((prevData) => ({
-            ...prevData,
-            ...draftData,
-            // Ensure Discord user data is preserved
-            discordUser: prevData.discordUser,
-          }))
-
-          // Log the loaded draft data for debugging
-          console.log("Loaded draft data:", draftData)
-          if (draftData.uploadedScreenshots) {
-            console.log("Loaded screenshots:", draftData.uploadedScreenshots)
-          }
-
-          toast({
-            title: "Draft Loaded",
-            description: "Your previous application progress has been restored.",
-          })
-
-          // If the draft has data beyond step 3, move to step 4
-          if (draftData.classification || draftData.services?.length > 0 || draftData.games?.length > 0) {
-            setCurrentStep(4)
-          }
-        }
-      } catch (error) {
-        console.error("Error loading draft:", error)
-      } finally {
-        setIsLoadingDraft(false)
-      }
-    },
-    [toast],
-  )
-
-  // Autosave when moving to next step
-  const nextStep = useCallback(() => {
+  const nextStep = () => {
     if (currentStep < 11) {
-      // Save current progress before moving to next step
-      if (formData.discordUser?.id) {
-        saveDraftToSupabase(formData.discordUser.id, formData.discordUser.email || null, formData).catch((error) => {
-          console.error("Error saving draft on step change:", error)
-        })
-      }
-
       setCurrentStep(currentStep + 1)
       window.scrollTo(0, 0)
     }
-  }, [currentStep, formData])
+  }
 
   const prevStep = () => {
     if (currentStep > 1) {
@@ -206,9 +114,6 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           discordUser: discordUser,
         })
 
-        // Load draft data if available
-        loadDraft(discordUser.id)
-
         // Переходим на шаг успешной верификации Discord
         console.log("Setting step to Discord Verification Success (3) due to discord_user param")
         setCurrentStep(3)
@@ -221,7 +126,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         console.error("Error parsing Discord user data:", e)
       }
     }
-  }, [initialDiscordCallback, searchParams, updateFormData, loadDraft])
+  }, [initialDiscordCallback, searchParams, updateFormData])
 
   const handleSubmit = async () => {
     try {
@@ -241,19 +146,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         delete submissionData.screenshots
       }
 
-      // Include the uploaded screenshots URLs and paths
-      if (submissionData.uploadedScreenshots && submissionData.uploadedScreenshots.length > 0) {
-        // Keep the uploadedScreenshots as is - it's already serializable
-        console.log("Submitting with uploaded screenshots:", submissionData.uploadedScreenshots)
-      }
-
       // Send data to n8n
       await submitBoosterApplication(submissionData)
-
-      // Mark the draft as submitted in Supabase if we have a Discord ID
-      if (formData.discordUser?.id) {
-        await markDraftAsSubmitted(formData.discordUser.id)
-      }
 
       setIsSubmitted(true)
       toast({
@@ -290,13 +184,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           />
         )
       case 3:
-        return (
-          <DiscordVerificationSuccessStep
-            onContinue={nextStep}
-            onBack={prevStep}
-            formData={{ ...formData, isLoadingDraft }}
-          />
-        )
+        return <DiscordVerificationSuccessStep onContinue={nextStep} onBack={prevStep} formData={formData} />
       case 4:
         return (
           <ClassificationStep

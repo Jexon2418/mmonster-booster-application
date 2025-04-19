@@ -3,7 +3,6 @@
 import { FormSection, FormButtons } from "../ui-components"
 import Image from "next/image"
 import type { FormData } from "../booster-application-form"
-import { Loader2 } from "lucide-react"
 
 interface DiscordVerificationSuccessStepProps {
   onContinue: () => void
@@ -14,8 +13,6 @@ interface DiscordVerificationSuccessStepProps {
 export function DiscordVerificationSuccessStep({ onContinue, onBack, formData }: DiscordVerificationSuccessStepProps) {
   // Extract Discord user data
   const discordUser = formData.discordUser
-  // Check if we're loading a draft (this will be passed from the parent component)
-  const isLoadingDraft = formData.isLoadingDraft as boolean | undefined
 
   // Function to generate Discord avatar URL
   const getAvatarUrl = () => {
@@ -74,13 +71,6 @@ export function DiscordVerificationSuccessStep({ onContinue, onBack, formData }:
             Your Discord account has been successfully linked to your application. This helps us verify your identity
             and communicate with you throughout the application process.
           </p>
-
-          {isLoadingDraft && (
-            <div className="mt-4 flex items-center text-gray-400">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              <span>Checking for saved application progress...</span>
-            </div>
-          )}
         </div>
       </div>
 
