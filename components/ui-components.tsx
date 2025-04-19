@@ -51,9 +51,10 @@ export function FormButtons({ onBack, onContinue, continueText = "Continue", dis
 interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
   required?: boolean
+  helperText?: string
 }
 
-export function FormInput({ label, required = false, ...props }: FormInputProps) {
+export function FormInput({ label, required = false, helperText, ...props }: FormInputProps) {
   return (
     <div className="space-y-2">
       <Label htmlFor={props.id} className="flex items-center text-white">
@@ -62,8 +63,8 @@ export function FormInput({ label, required = false, ...props }: FormInputProps)
       <input
         {...props}
         className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
-        defaultValue={props.defaultValue || ""}
       />
+      {helperText && <p className="text-gray-400 text-sm">{helperText}</p>}
     </div>
   )
 }

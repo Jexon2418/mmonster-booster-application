@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { FormSection, FormButtons, FormTextarea, FileUpload } from "../ui-components"
+import { useState, useEffect } from "react"
+import { FormSection, FormButtons, FormTextarea } from "../ui-components"
+import { FileUploader } from "../file-uploader"
 import type { FormData } from "../booster-application-form"
+import type { UploadedFile } from "@/lib/supabaseStorage"
+import { listUserFiles } from "@/lib/supabaseStorage"
 
 interface ExperienceStepProps {
   formData: FormData
@@ -13,10 +16,47 @@ interface ExperienceStepProps {
 
 export function ExperienceStep({ formData, updateFormData, onContinue, onBack }: ExperienceStepProps) {
   const [experience, setExperience] = useState(formData.experience)
-  const [screenshots, setScreenshots] = useState<File[]>(formData.screenshots)
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(formData.uploadedFiles || [])
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false)
+  const [marketplaceProfiles, setMarketplaceProfiles] = useState({
+    funpay: formData.marketplaceProfiles?.funpay || "",
+    g2g: formData.marketplaceProfiles?.g2g || "",
+    eldorado: formData.marketplaceProfiles?.eldorado || "",
+    other: formData.marketplaceProfiles?.other || "",
+  })
+
+  // Load existing files when the component mounts
+  useEffect(() => {
+    const loadExistingFiles = async () => {
+      // Only load files if we have a Discord user ID and no files are loaded yet
+      if (formData.discordUser?.id && uploadedFiles.length === 0) {
+        setIsLoadingFiles(true)
+        try {
+          const files = await listUserFiles(formData.discordUser.id)
+          setUploadedFiles(files)
+          updateFormData({ uploadedFiles: files })
+        } catch (error) {
+          console.error("Error loading files:", error)
+        } finally {
+          setIsLoadingFiles(false)
+        }
+      }
+    }
+
+    loadExistingFiles()
+  }, [formData.discordUser?.id, uploadedFiles.length, updateFormData])
+
+  const handleFilesChange = (files: UploadedFile[]) => {
+    setUploadedFiles(files)
+    updateFormData({ uploadedFiles: files })
+  }
 
   const handleContinue = () => {
-    updateFormData({ experience, screenshots })
+    updateFormData({
+      experience,
+      uploadedFiles,
+      marketplaceProfiles,
+    })
     onContinue()
   }
 
@@ -41,11 +81,18 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
             If you have any proof of your work or evidence of your in-game achievements, you can upload a few
             screenshots.
           </p>
-          <FileUpload
-            onFilesSelected={setScreenshots}
-            multiple
-            accept="image/jpeg,image/png,image/heic,image/webp,application/pdf"
-          />
+
+          {formData.discordUser?.id ? (
+            <FileUploader
+              discordId={formData.discordUser.id}
+              uploadedFiles={uploadedFiles}
+              onFilesChange={handleFilesChange}
+            />
+          ) : (
+            <div className="bg-[#2D3748] border border-[#4A5568] rounded-md p-4 text-gray-400">
+              Please log in with Discord to upload screenshots.
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -57,21 +104,29 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
             <input
               type="text"
               placeholder="FunPay profile url"
+              value={marketplaceProfiles.funpay}
+              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, funpay: e.target.value })}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="G2G profile url"
+              value={marketplaceProfiles.g2g}
+              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, g2g: e.target.value })}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="eldorado.gg profile url"
+              value={marketplaceProfiles.eldorado}
+              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, eldorado: e.target.value })}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="other marketplace profile url"
+              value={marketplaceProfiles.other}
+              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, other: e.target.value })}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
           </div>

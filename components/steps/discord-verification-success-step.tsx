@@ -2,21 +2,22 @@
 
 import { FormSection, FormButtons } from "../ui-components"
 import Image from "next/image"
-import type { FormData } from "../booster-application-form"
+import type { DiscordUser } from "../booster-application-form"
 import { Loader2 } from "lucide-react"
 
 interface DiscordVerificationSuccessStepProps {
-  onContinue: () => void
-  onBack: () => void
-  formData: FormData
+  onContinue?: () => void
+  onBack?: () => void
+  discordUser?: DiscordUser | null
+  isLoadingDraft?: boolean
 }
 
-export function DiscordVerificationSuccessStep({ onContinue, onBack, formData }: DiscordVerificationSuccessStepProps) {
-  // Extract Discord user data
-  const discordUser = formData.discordUser
-  // Check if we're loading a draft (this will be passed from the parent component)
-  const isLoadingDraft = formData.isLoadingDraft as boolean | undefined
-
+export function DiscordVerificationSuccessStep({
+  onContinue,
+  onBack,
+  discordUser,
+  isLoadingDraft,
+}: DiscordVerificationSuccessStepProps) {
   // Function to generate Discord avatar URL
   const getAvatarUrl = () => {
     if (!discordUser?.avatar) {
@@ -84,7 +85,7 @@ export function DiscordVerificationSuccessStep({ onContinue, onBack, formData }:
         </div>
       </div>
 
-      <FormButtons onContinue={onContinue} onBack={onBack} />
+      {onContinue && <FormButtons onContinue={onContinue} onBack={onBack} />}
     </FormSection>
   )
 }

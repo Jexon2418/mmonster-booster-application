@@ -9,7 +9,7 @@ export default function Home() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Проверяем, есть ли параметр code в URL, что указывает на возврат от Discord OAuth
+    // Check if there's a code parameter in URL, indicating return from Discord OAuth
     const code = searchParams.get("code")
     const state = searchParams.get("state")
 
@@ -17,7 +17,7 @@ export default function Home() {
       console.log("Detected Discord OAuth callback with code and state")
       setIsDiscordCallback(true)
 
-      // Очищаем URL от параметров OAuth без перезагрузки страницы
+      // Clean URL from OAuth parameters without page reload
       const url = new URL(window.location.href)
       url.searchParams.delete("code")
       url.searchParams.delete("state")
@@ -26,10 +26,12 @@ export default function Home() {
   }, [searchParams])
 
   return (
-    <main className="min-h-screen bg-[#171923] flex items-center justify-center py-8">
-      <Suspense fallback={<LoadingState />}>
-        <BoosterApplicationForm initialDiscordCallback={isDiscordCallback} />
-      </Suspense>
+    <main className="min-h-screen bg-[#171923] flex flex-col items-center">
+      <div className="pt-16 pb-8 w-full flex justify-center">
+        <Suspense fallback={<LoadingState />}>
+          <BoosterApplicationForm initialDiscordCallback={isDiscordCallback} />
+        </Suspense>
+      </div>
     </main>
   )
 }

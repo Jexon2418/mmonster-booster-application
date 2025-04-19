@@ -8,13 +8,20 @@ import { saveDiscordUser } from "@/lib/auth-service"
 import Image from "next/image"
 
 interface DiscordAuthStepProps {
-  onContinue: () => void
-  onBack: () => void
-  formData: FormData
-  updateFormData: (data: Partial<FormData>) => void
+  onContinue?: () => void
+  onBack?: () => void
+  formData?: FormData
+  updateFormData?: (data: Partial<FormData>) => void
+  setAuthHandler?: (handler: (() => void) | null) => void
 }
 
-export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }: DiscordAuthStepProps) {
+export function DiscordAuthStep({
+  onContinue,
+  onBack,
+  formData,
+  updateFormData,
+  setAuthHandler,
+}: DiscordAuthStepProps) {
   const [discordAuthUrl, setDiscordAuthUrl] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,6 +31,37 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
   // Get Discord user data from URL if available
   const discordUserParam = searchParams.get("discord_user")
   const errorParam = searchParams.get("error")
+
+  const handleDiscordAuth = () => {
+    if (discordAuthUrl) {
+      // Save current URL for return after authentication
+      sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
+      window.location.href = discordAuthUrl
+    } else {
+      setError("Discord authentication URL is not available. Please try again later.")
+    }
+  }
+
+  // Handle skip button click
+  const handleSkip = () => {
+    if (onContinue) {
+      onContinue()
+    }
+  }
+
+  useEffect(() => {
+    // Expose the auth handler to the parent component
+    if (setAuthHandler) {
+      setAuthHandler(() => handleDiscordAuth)
+    }
+
+    // Cleanup function to reset the handler when component unmounts
+    return () => {
+      if (setAuthHandler) {
+        setAuthHandler(null)
+      }
+    }
+  }, [discordAuthUrl, setAuthHandler])
 
   useEffect(() => {
     // Initialize the Discord auth URL
@@ -79,7 +117,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
         // Save Discord user to localStorage and Supabase
         saveDiscordUser(discordUser)
           .then((success) => {
-            if (success) {
+            if (success && updateFormData) {
               // Update form data with Discord user info
               updateFormData({
                 discordId: discordUser.fullDiscordTag,
@@ -92,7 +130,9 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
               window.history.replaceState({}, "", url)
 
               // Move to next step
-              onContinue()
+              if (onContinue) {
+                onContinue()
+              }
             } else {
               setError("Failed to save Discord user data. Please try again.")
             }
@@ -107,16 +147,6 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       }
     }
   }, [discordUserParam, errorParam, updateFormData, onContinue])
-
-  const handleDiscordAuth = () => {
-    if (discordAuthUrl) {
-      // Save current URL for return after authentication
-      sessionStorage.setItem("discordAuthReturnUrl", window.location.href)
-      window.location.href = discordAuthUrl
-    } else {
-      setError("Discord authentication URL is not available. Please try again later.")
-    }
-  }
 
   return (
     <FormSection title="" description="">
@@ -194,7 +224,7 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
       {/* Temporary skip button for testing */}
       <div className="mt-4 text-center">
         <button
-          onClick={onContinue}
+          onClick={handleSkip}
           className="px-4 py-2 text-xs text-gray-400 border border-gray-700 rounded-md hover:bg-gray-800 transition-colors"
         >
           [TEMP] Skip Discord Login for Testing

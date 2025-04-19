@@ -16,15 +16,10 @@ import { submitBoosterApplication } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
-import { DiscordUserDisplay } from "./discord-user-display"
 import { TopNavigation } from "./top-navigation"
-import {
-  saveDiscordUser,
-  getDiscordUser,
-  clearDiscordUser,
-  isDiscordAuthenticated,
-  verifyDiscordSession,
-} from "@/lib/auth-service"
+import { FixedHeader } from "./fixed-header"
+import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession } from "@/lib/auth-service"
+import type { UploadedFile } from "@/lib/supabaseStorage"
 
 export type DiscordUser = {
   id: string
@@ -41,6 +36,13 @@ export type FormData = {
   games: string[]
   experience: string
   screenshots: File[]
+  uploadedFiles: UploadedFile[] // New field for Supabase Storage uploads
+  marketplaceProfiles?: {
+    funpay: string
+    g2g: string
+    eldorado: string
+    other: string
+  }
   discordId: string
   telegram: string
   fullName: string
@@ -62,6 +64,13 @@ const initialFormData: FormData = {
   games: [],
   experience: "",
   screenshots: [],
+  uploadedFiles: [], // Initialize as empty array
+  marketplaceProfiles: {
+    funpay: "",
+    g2g: "",
+    eldorado: "",
+    other: "",
+  },
   discordId: "",
   telegram: "",
   fullName: "",
@@ -92,6 +101,9 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
   const initRef = useRef(false)
   const draftLoadedRef = useRef(false)
   const stepSetFromDraftRef = useRef(false)
+
+  // Reference to the Discord auth handler from DiscordAuthStep
+  const [discordAuthHandler, setDiscordAuthHandler] = useState<(() => void) | null>(null)
 
   // Improved updateFormData function to ensure complete form data is saved
   const updateFormData = useCallback(
@@ -135,6 +147,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
               ...draftData,
               // Ensure Discord user data is preserved
               discordUser: prevData.discordUser,
+              // Initialize uploadedFiles if it doesn't exist
+              uploadedFiles: draftData.uploadedFiles || [],
             }
 
             return mergedData
@@ -217,8 +231,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         })
 
         // Move to Discord verification success step
-        console.log("Setting step to Discord Verification Success (3) due to discord_user param")
-        setCurrentStep(3)
+        console.log("Setting step to Discord Verification Success (2) due to discord_user param")
+        setCurrentStep(2)
 
         // Clean up URL params
         const url = new URL(window.location.href)
@@ -322,6 +336,11 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         delete submissionData.screenshots
       }
 
+      // Include uploaded file paths in the submission
+      if (submissionData.uploadedFiles && submissionData.uploadedFiles.length > 0) {
+        submissionData.uploadedFilePaths = submissionData.uploadedFiles.map((file) => file.path)
+      }
+
       // Send data to n8n
       await submitBoosterApplication(submissionData)
 
@@ -358,14 +377,6 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       case 2: // Discord verification success
         return false
       case 3: // Classification
-        // Check if the current step component has its own validation
-        const classificationStep = document.querySelector(".classification-step")
-        if (classificationStep) {
-          // If the Continue button is enabled in the step component, enable the Next button too
-          const continueButton = classificationStep.querySelector('button[type="submit"]:not(:disabled)')
-          return !continueButton
-        }
-        // Fallback to basic validation
         return !formData.classification
       case 4: // Services
         return formData.services.length === 0
@@ -395,6 +406,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             onBack={prevStep}
             formData={formData}
             updateFormData={updateFormData}
+            setAuthHandler={setDiscordAuthHandler}
           />
         )
       case 2:
@@ -402,7 +414,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           <DiscordVerificationSuccessStep
             onContinue={nextStep}
             onBack={prevStep}
-            formData={{ ...formData, isLoadingDraft }}
+            discordUser={formData.discordUser}
+            isLoadingDraft={isLoadingDraft}
           />
         )
       case 3:
@@ -458,27 +471,38 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             onBack={prevStep}
             formData={formData}
             updateFormData={updateFormData}
+            setAuthHandler={setDiscordAuthHandler}
           />
         )
     }
   }
 
   return (
-    <div className="w-full max-w-3xl px-4">
-      {isDiscordAuthenticated() && <DiscordUserDisplay user={formData.discordUser} onLogout={handleLogout} />}
-      <StepIndicator currentStep={currentStep} totalSteps={10} />
-      <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
-        {currentStep > 1 && (
-          <TopNavigation
-            onBack={prevStep}
-            onNext={nextStep}
-            currentStep={currentStep}
-            totalSteps={10}
-            disableNext={isButtonDisabled()}
-          />
-        )}
-        {renderStep()}
+    <>
+      {/* Fixed Header */}
+      <FixedHeader
+        user={formData.discordUser}
+        onLogout={handleLogout}
+        onLogin={discordAuthHandler || undefined}
+        isLoginStep={currentStep === 1}
+      />
+
+      {/* Main Content - with padding to account for fixed header */}
+      <div className="w-full max-w-3xl px-4">
+        <StepIndicator currentStep={currentStep} totalSteps={10} />
+        <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
+          {currentStep > 1 && (
+            <TopNavigation
+              onBack={prevStep}
+              onNext={nextStep}
+              currentStep={currentStep}
+              totalSteps={10}
+              disableNext={isButtonDisabled()}
+            />
+          )}
+          {renderStep()}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
