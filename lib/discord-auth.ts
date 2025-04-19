@@ -1,4 +1,5 @@
-"use server"
+// Удаляем директиву "use server", так как она вызывает проблемы
+// "use server"
 
 import { DISCORD_CONFIG, validateEnv } from "./env"
 

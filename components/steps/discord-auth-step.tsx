@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { FormSection, FormButtons, Alert } from "../ui-components"
-import { getDiscordAuthUrl } from "@/lib/discord-auth"
 import { useSearchParams } from "next/navigation"
-import type { FormData } from "../booster-application-form"
+import type { FormData, DiscordUser } from "../booster-application-form"
 
 interface DiscordAuthStepProps {
   onContinue: () => void
@@ -28,7 +27,26 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     // Initialize the Discord auth URL
     async function loadAuthUrl() {
       try {
-        const url = await getDiscordAuthUrl()
+        // Создаем URL для аутентификации Discord напрямую, без вызова серверной функции
+        const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+        const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI
+
+        if (!clientId || !redirectUri) {
+          throw new Error("Missing Discord configuration. Please check your environment variables.")
+        }
+
+        const state = Math.random().toString(36).substring(2, 15)
+        const scopes = ["identify", "email"].join(" ")
+
+        const params = new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          response_type: "code",
+          scope: scopes,
+          state: state,
+        })
+
+        const url = `https://discord.com/api/oauth2/authorize?${params.toString()}`
         setDiscordAuthUrl(url)
         setIsLoading(false)
       } catch (error) {
@@ -54,11 +72,11 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
     // Обрабатываем параметр discord_user здесь, чтобы не зависеть от родительского компонента
     if (discordUserParam) {
       try {
-        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as FormData["discordUser"]
+        const discordUser = JSON.parse(decodeURIComponent(discordUserParam)) as DiscordUser
 
         // Обновляем данные формы с информацией о Discord пользователе
         updateFormData({
-          discordId: discordUser?.fullDiscordTag || "",
+          discordId: discordUser.fullDiscordTag,
           discordUser: discordUser,
         })
 
