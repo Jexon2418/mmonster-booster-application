@@ -35,13 +35,22 @@ export type UploadedFile = {
   size: number
 }
 
+// Define the MarketplaceProfiles type
+export type MarketplaceProfiles = {
+  funpay?: string
+  g2g?: string
+  eldorado?: string
+  other?: string
+}
+
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
   games: string[]
   experience: string
   screenshots: File[]
-  uploadedScreenshots?: UploadedFile[] // New field for Supabase Storage uploads
+  uploadedScreenshots?: UploadedFile[] // Supabase Storage uploads
+  marketplaceProfiles?: MarketplaceProfiles // Marketplace profiles
   discordId: string
   telegram: string
   fullName: string
@@ -64,6 +73,12 @@ const initialFormData: FormData = {
   experience: "",
   screenshots: [],
   uploadedScreenshots: [], // Initialize as empty array
+  marketplaceProfiles: {
+    funpay: "",
+    g2g: "",
+    eldorado: "",
+    other: "",
+  },
   discordId: "",
   telegram: "",
   fullName: "",
@@ -123,6 +138,12 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             // Ensure Discord user data is preserved
             discordUser: prevData.discordUser,
           }))
+
+          // Log the loaded draft data for debugging
+          console.log("Loaded draft data:", draftData)
+          if (draftData.uploadedScreenshots) {
+            console.log("Loaded screenshots:", draftData.uploadedScreenshots)
+          }
 
           toast({
             title: "Draft Loaded",
@@ -223,6 +244,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       // Include the uploaded screenshots URLs and paths
       if (submissionData.uploadedScreenshots && submissionData.uploadedScreenshots.length > 0) {
         // Keep the uploadedScreenshots as is - it's already serializable
+        console.log("Submitting with uploaded screenshots:", submissionData.uploadedScreenshots)
       }
 
       // Send data to n8n

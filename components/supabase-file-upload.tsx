@@ -35,6 +35,39 @@ export function SupabaseFileUpload({
   const [error, setError] = useState<string | null>(null)
   const maxSizeBytes = maxSizeMB * 1024 * 1024 // Convert MB to bytes
 
+  // Ensure all initial files have valid public URLs
+  useEffect(() => {
+    const updateFilesWithPublicUrls = async () => {
+      if (!initialFiles || initialFiles.length === 0) return
+
+      const updatedFiles = await Promise.all(
+        initialFiles.map(async (file) => {
+          // If the file already has a valid URL that includes the Supabase URL, use it
+          if (file.url && file.url.includes(supabase.supabaseUrl)) {
+            return file
+          }
+
+          // Otherwise, generate a new public URL
+          try {
+            const { data } = supabase.storage.from("user-screenshots").getPublicUrl(file.path)
+            return {
+              ...file,
+              url: data.publicUrl,
+            }
+          } catch (error) {
+            console.error("Error generating public URL for file:", file.path, error)
+            return file
+          }
+        }),
+      )
+
+      setUploadedFiles(updatedFiles)
+      onFilesChange(updatedFiles)
+    }
+
+    updateFilesWithPublicUrls()
+  }, [initialFiles, onFilesChange])
+
   useEffect(() => {
     // Update parent component when files change
     onFilesChange(uploadedFiles)
@@ -83,11 +116,21 @@ export function SupabaseFileUpload({
         // Get the public URL for the file
         const { data: urlData } = supabase.storage.from("user-screenshots").getPublicUrl(filePath)
 
+        if (!urlData || !urlData.publicUrl) {
+          throw new Error("Failed to generate public URL for uploaded file")
+        }
+
         newFiles.push({
           url: urlData.publicUrl,
           path: filePath,
           name: file.name,
           size: file.size,
+        })
+
+        console.log("File uploaded successfully:", {
+          path: filePath,
+          url: urlData.publicUrl,
+          name: file.name,
         })
       } catch (error) {
         console.error("Error uploading file:", error)
@@ -173,8 +216,24 @@ export function SupabaseFileUpload({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
           {uploadedFiles.map((file, index) => (
             <div key={index} className="relative group">
-              <div className="relative h-32 w-full rounded-md overflow-hidden border border-[#4A5568]">
-                <Image src={file.url || "/placeholder.svg"} alt={file.name} fill className="object-cover" />
+              <div className="relative h-32 w-full rounded-md overflow-hidden border border-[#4A5568] bg-[#1A202C]">
+                {file.url ? (
+                  <Image
+                    src={file.url || "/placeholder.svg"}
+                    alt={file.name}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      console.error("Error loading image:", file.url)
+                      // Set fallback image on error
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <AlertCircle className="h-8 w-8 text-gray-500" />
+                  </div>
+                )}
               </div>
               <button
                 type="button"

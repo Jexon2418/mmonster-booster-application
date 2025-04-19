@@ -1,16 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FormSection, FormButtons, FormTextarea } from "../ui-components"
 import { SupabaseFileUpload } from "../supabase-file-upload"
 import type { FormData } from "../booster-application-form"
-
-interface UploadedFile {
-  url: string
-  path: string
-  name: string
-  size: number
-}
+import type { UploadedFile } from "../booster-application-form"
 
 interface ExperienceStepProps {
   formData: FormData
@@ -22,14 +16,33 @@ interface ExperienceStepProps {
 export function ExperienceStep({ formData, updateFormData, onContinue, onBack }: ExperienceStepProps) {
   const [experience, setExperience] = useState(formData.experience)
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(formData.uploadedScreenshots || [])
+  const [marketplaceProfiles, setMarketplaceProfiles] = useState({
+    funpay: formData.marketplaceProfiles?.funpay || "",
+    g2g: formData.marketplaceProfiles?.g2g || "",
+    eldorado: formData.marketplaceProfiles?.eldorado || "",
+    other: formData.marketplaceProfiles?.other || "",
+  })
 
   // Get Discord ID from formData
   const discordId = formData.discordUser?.id || "anonymous"
+
+  useEffect(() => {
+    // Log the initial uploaded files for debugging
+    if (formData.uploadedScreenshots && formData.uploadedScreenshots.length > 0) {
+      console.log("Initial uploaded screenshots:", formData.uploadedScreenshots)
+    }
+  }, [formData.uploadedScreenshots])
 
   const handleContinue = () => {
     updateFormData({
       experience,
       uploadedScreenshots: uploadedFiles,
+      marketplaceProfiles: {
+        funpay: marketplaceProfiles.funpay,
+        g2g: marketplaceProfiles.g2g,
+        eldorado: marketplaceProfiles.eldorado,
+        other: marketplaceProfiles.other,
+      },
       // Keep the screenshots array for backward compatibility
       screenshots: [],
     })
@@ -37,7 +50,15 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
   }
 
   const handleFilesChange = (files: UploadedFile[]) => {
+    console.log("Files changed:", files)
     setUploadedFiles(files)
+  }
+
+  const handleMarketplaceChange = (field: keyof typeof marketplaceProfiles, value: string) => {
+    setMarketplaceProfiles((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
   return (
@@ -80,21 +101,29 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
             <input
               type="text"
               placeholder="FunPay profile url"
+              value={marketplaceProfiles.funpay}
+              onChange={(e) => handleMarketplaceChange("funpay", e.target.value)}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="G2G profile url"
+              value={marketplaceProfiles.g2g}
+              onChange={(e) => handleMarketplaceChange("g2g", e.target.value)}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="eldorado.gg profile url"
+              value={marketplaceProfiles.eldorado}
+              onChange={(e) => handleMarketplaceChange("eldorado", e.target.value)}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
             <input
               type="text"
               placeholder="other marketplace profile url"
+              value={marketplaceProfiles.other}
+              onChange={(e) => handleMarketplaceChange("other", e.target.value)}
               className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
             />
           </div>
