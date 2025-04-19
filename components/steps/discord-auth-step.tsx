@@ -25,9 +25,19 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
 
   useEffect(() => {
     // Initialize the Discord auth URL
-    const authUrl = getDiscordAuthUrl()
-    setDiscordAuthUrl(authUrl)
-    setIsLoading(false)
+    async function loadAuthUrl() {
+      try {
+        const url = await getDiscordAuthUrl()
+        setDiscordAuthUrl(url)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Failed to get Discord auth URL:", error)
+        setError("Failed to initialize Discord authentication")
+        setIsLoading(false)
+      }
+    }
+
+    loadAuthUrl()
 
     // Handle error from callback
     if (errorParam) {
@@ -72,8 +82,12 @@ export function DiscordAuthStep({ onContinue, onBack, formData, updateFormData }
           information.
         </p>
         <button
-          onClick={() => (window.location.href = discordAuthUrl)}
-          disabled={isLoading}
+          onClick={() => {
+            if (discordAuthUrl) {
+              window.location.href = discordAuthUrl
+            }
+          }}
+          disabled={isLoading || !discordAuthUrl}
           className="w-full py-3 bg-[#5865F2] text-white rounded-md hover:bg-[#5865F2]/90 transition-colors flex items-center justify-center disabled:opacity-50"
         >
           {isLoading ? (

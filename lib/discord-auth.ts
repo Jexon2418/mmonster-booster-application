@@ -18,7 +18,7 @@ const SCOPES = ["identify", "email"].join(" ")
  * Generates the Discord OAuth2 authorization URL
  * @returns The URL to redirect the user to for Discord authentication
  */
-export async function getDiscordAuthUrl() {
+export function getDiscordAuthUrl() {
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: DISCORD_REDIRECT_URI,
