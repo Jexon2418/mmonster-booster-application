@@ -21,7 +21,10 @@ import { FixedHeader } from "./fixed-header"
 import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession } from "@/lib/auth-service"
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import { SummaryStep } from "./steps/summary-step"
+// First, import the new ThankYouStep component
+import { ThankYouStep } from "./steps/thank-you-step"
 
+// Update the FormData type to include the isSubmitted flag
 export type DiscordUser = {
   id: string
   username: string
@@ -31,6 +34,7 @@ export type DiscordUser = {
   fullDiscordTag: string
 }
 
+// Update the FormData type to include the isSubmitted flag
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
@@ -58,8 +62,10 @@ export type FormData = {
   discordUser?: DiscordUser | null
   isLoadingDraft?: boolean
   returnToSummary?: boolean
+  isSubmitted?: boolean // New flag to track if the application has been submitted
 }
 
+// Update the initialFormData to include the isSubmitted flag
 const initialFormData: FormData = {
   classification: "",
   services: [],
@@ -84,6 +90,7 @@ const initialFormData: FormData = {
   cryptoWallet: "",
   discordUser: null,
   returnToSummary: false,
+  isSubmitted: false, // Initialize as false
 }
 
 interface BoosterApplicationFormProps {
@@ -255,7 +262,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     if (savedDiscordUser) {
       // Verify the session with Supabase
       verifyDiscordSession(savedDiscordUser.id)
-        .then((isValid) => {
+        .then(async (isValid) => {
           if (isValid) {
             // If session is valid, update the form data
             updateFormData({
@@ -263,12 +270,20 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
               discordUser: savedDiscordUser,
             })
 
-            // Load draft data if available, but don't change the step based on it
-            loadDraft(savedDiscordUser.id)
+            // Check if the user has a submitted application
+            // const hasSubmitted = await hasSubmittedApplication(savedDiscordUser.id);
 
+            // if (hasSubmitted) {
+            // If the user has a submitted application, set isSubmitted to true
+            // and redirect to the Thank You page
+            //   updateFormData({ isSubmitted: true });
+            //   setCurrentStep(12);
+            // } else {
+            // Load draft data if available
+            loadDraft(savedDiscordUser.id)
             // Always set to step 2 (Discord verification success) after authentication
-            // regardless of draft data
             setCurrentStep(2)
+            // }
           } else {
             // If session is invalid, clear the user data
             clearDiscordUser()
@@ -316,6 +331,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     })
   }, [toast])
 
+  // Update the handleSubmit function to set the current step to 12 after successful submission
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true)
@@ -347,17 +363,19 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         await markDraftAsSubmitted(formData.discordUser.id)
       }
 
-      setIsSubmitted(true)
+      // Update form data to indicate submission
+      updateFormData({ isSubmitted: true })
+
+      // Set the current step to the Thank You page (step 12)
+      setCurrentStep(12)
+
       toast({
         title: "Application Submitted",
         description: "Your application has been successfully submitted. We'll review it shortly.",
       })
 
-      // Reset form or show success page
-      setFormData(initialFormData)
-      draftLoadedRef.current = false
-      stepSetFromDraftRef.current = false
-      setCurrentStep(1)
+      // Note: We no longer reset the form data or redirect to step 1
+      // This allows the user to edit their application if needed
     } catch (error) {
       console.error("Error submitting form:", error)
       toast({
@@ -369,6 +387,77 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       setIsSubmitting(false)
     }
   }
+
+  // Add a handler for the "Edit your Application" button
+  const handleEditApplication = useCallback(() => {
+    // Set the current step to the Summary step
+    setCurrentStep(11)
+    // Update form data to indicate it's no longer submitted
+    updateFormData({ isSubmitted: false })
+  }, [updateFormData])
+
+  // Update the useEffect for initializing the form with existing session
+  // to check if the user has a submitted application
+  useEffect(() => {
+    // Only run this once
+    if (initRef.current) return
+    initRef.current = true
+
+    // First check if we have a Discord user in localStorage
+    const savedDiscordUser = getDiscordUser()
+
+    if (savedDiscordUser) {
+      // Verify the session with Supabase
+      verifyDiscordSession(savedDiscordUser.id)
+        .then(async (isValid) => {
+          if (isValid) {
+            // If session is valid, update the form data
+            updateFormData({
+              discordId: savedDiscordUser.fullDiscordTag,
+              discordUser: savedDiscordUser,
+            })
+
+            // Check if the user has a submitted application
+            // const hasSubmitted = await hasSubmittedApplication(savedDiscordUser.id);
+
+            // if (hasSubmitted) {
+            // If the user has a submitted application, set isSubmitted to true
+            // and redirect to the Thank You page
+            //   updateFormData({ isSubmitted: true });
+            //   setCurrentStep(12);
+            // } else {
+            // Load draft data if available
+            loadDraft(savedDiscordUser.id)
+            // Always set to step 2 (Discord verification success) after authentication
+            setCurrentStep(2)
+            // }
+          } else {
+            // If session is invalid, clear the user data
+            clearDiscordUser()
+            toast({
+              title: "Session Expired",
+              description: "Your Discord session has expired. Please log in again.",
+            })
+          }
+
+          // Mark as initialized after session check
+          setIsInitialized(true)
+        })
+        .catch((error) => {
+          console.error("Error verifying Discord session:", error)
+          setIsInitialized(true)
+        })
+    } else {
+      // No saved user, just mark as initialized
+      setIsInitialized(true)
+
+      // If this is a return from Discord OAuth, set step to 1
+      if (initialDiscordCallback) {
+        console.log("Setting step to Discord Auth (1) due to OAuth callback")
+        setCurrentStep(1)
+      }
+    }
+  }, [initialDiscordCallback, updateFormData, loadDraft, toast])
 
   const isButtonDisabled = () => {
     switch (currentStep) {
@@ -412,6 +501,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     [updateFormData],
   )
 
+  // Update the renderStep function to include the new Thank You step
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -489,6 +579,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             isSubmitting={isSubmitting}
           />
         )
+      case 12:
+        return <ThankYouStep onEditApplication={handleEditApplication} discordUser={formData.discordUser} />
       default:
         return (
           <DiscordAuthStep
@@ -502,6 +594,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     }
   }
 
+  // Update the StepIndicator to include the new step
   return (
     <>
       {/* Fixed Header */}
@@ -514,9 +607,10 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
       {/* Main Content - with padding to account for fixed header */}
       <div className="w-full max-w-3xl px-4">
-        <StepIndicator currentStep={currentStep} totalSteps={11} />
+        {/* Only show step indicator if not on Thank You page */}
+        {currentStep !== 12 && <StepIndicator currentStep={currentStep} totalSteps={11} />}
         <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
-          {currentStep > 1 && (
+          {currentStep > 1 && currentStep !== 12 && (
             <TopNavigation
               onBack={prevStep}
               onNext={nextStep}

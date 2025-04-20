@@ -4,6 +4,11 @@ interface StepIndicatorProps {
 }
 
 export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
+  // If we're on step 12 (Thank You page), don't show the step indicator
+  if (currentStep > totalSteps) {
+    return null
+  }
+
   return (
     <div className="flex justify-center space-x-2 overflow-x-auto py-2">
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (

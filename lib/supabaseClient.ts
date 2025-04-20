@@ -186,6 +186,65 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
 }
 
 /**
+ * Marks a submitted application as editable (draft) in Supabase
+ */
+export async function markDraftAsEditable(discordId: string): Promise<boolean> {
+  try {
+    if (!discordId) {
+      console.error("Cannot update application status: Discord ID is missing")
+      return false
+    }
+
+    const { error } = await supabase
+      .from("draft_applications")
+      .update({
+        status: "draft",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("discord_id", discordId)
+      .eq("status", "submitted")
+
+    if (error) {
+      console.error("Error marking application as editable:", error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error in markDraftAsEditable:", error)
+    return false
+  }
+}
+
+/**
+ * Checks if a user has a submitted application
+ */
+export async function hasSubmittedApplication(discordId: string): Promise<boolean> {
+  try {
+    if (!discordId) {
+      return false
+    }
+
+    const { data, error } = await supabase
+      .from("draft_applications")
+      .select("status")
+      .eq("discord_id", discordId)
+      .eq("status", "submitted")
+      .maybeSingle()
+
+    if (error) {
+      console.error("Error checking submitted application:", error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error("Error in hasSubmittedApplication:", error)
+    return false
+  }
+}
+
+/**
  * Deletes a draft application from Supabase
  */
 export async function deleteDraft(discordId: string): Promise<boolean> {
