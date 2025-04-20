@@ -104,7 +104,7 @@ export async function saveDraftToSupabase(
     // Check if a draft already exists for this Discord ID
     const { data: existingDraft, error: queryError } = await supabase
       .from("draft_applications")
-      .select("id, submit_count")
+      .select("id, submit_count, status")
       .eq("discord_id", discordId)
       .maybeSingle()
 
@@ -116,13 +116,18 @@ export async function saveDraftToSupabase(
     const now = new Date().toISOString()
 
     if (existingDraft) {
-      // Update existing draft
+      console.log(
+        `Updating existing draft for Discord ID: ${discordId}, current status: ${existingDraft.status}, submit_count: ${existingDraft.submit_count || 0}`,
+      )
+
+      // Update existing draft but preserve the status and submit_count
       const { error } = await supabase
         .from("draft_applications")
         .update({
           email,
           application_data: cleanedData,
           updated_at: now,
+          // Don't update status or submit_count here
         })
         .eq("id", existingDraft.id)
 
@@ -130,7 +135,11 @@ export async function saveDraftToSupabase(
         console.error("Error updating draft application:", error)
         return false
       }
+
+      console.log("Draft updated successfully")
     } else {
+      console.log(`Creating new draft for Discord ID: ${discordId}`)
+
       // Insert new draft with submit_count initialized to 0
       const { error } = await supabase.from("draft_applications").insert({
         discord_id: discordId,
@@ -146,6 +155,8 @@ export async function saveDraftToSupabase(
         console.error("Error saving draft application:", error)
         return false
       }
+
+      console.log("New draft created successfully")
     }
 
     return true
@@ -194,10 +205,12 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
       return false
     }
 
+    console.log(`Attempting to mark application as submitted for Discord ID: ${discordId}`)
+
     // First, get the current draft to access submit_count and application_data
     const { data: currentDraft, error: fetchError } = await supabase
       .from("draft_applications")
-      .select("id, submit_count, application_data")
+      .select("id, submit_count, application_data, status")
       .eq("discord_id", discordId)
       .eq("status", "draft")
       .single()
@@ -208,15 +221,21 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
     }
 
     if (!currentDraft) {
-      console.error("No draft found for submission")
+      console.error("No draft found for submission. Discord ID:", discordId)
       return false
     }
+
+    console.log(
+      `Found draft with ID: ${currentDraft.id}, current status: ${currentDraft.status}, current submit_count: ${currentDraft.submit_count || 0}`,
+    )
 
     // Increment the submit_count
     const newSubmitCount = (currentDraft.submit_count || 0) + 1
 
+    console.log(`Updating draft to status 'submitted' with submit_count: ${newSubmitCount}`)
+
     // Update the draft status and submit_count
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "submitted",
@@ -224,11 +243,14 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
         updated_at: new Date().toISOString(),
       })
       .eq("id", currentDraft.id)
+      .select()
 
     if (updateError) {
       console.error("Error marking draft as submitted:", updateError)
       return false
     }
+
+    console.log("Successfully updated draft status to 'submitted':", updateData)
 
     // Send the application data and submit_count to the webhook
     const webhookData = {
@@ -259,21 +281,47 @@ export async function markDraftAsEditable(discordId: string): Promise<boolean> {
       return false
     }
 
-    const { error } = await supabase
+    console.log(`Attempting to mark application as editable for Discord ID: ${discordId}`)
+
+    // First check if the application exists and is in submitted status
+    const { data: existingApp, error: queryError } = await supabase
+      .from("draft_applications")
+      .select("id, status, submit_count")
+      .eq("discord_id", discordId)
+      .eq("status", "submitted")
+      .maybeSingle()
+
+    if (queryError) {
+      console.error("Error querying application:", queryError)
+      return false
+    }
+
+    if (!existingApp) {
+      console.error("No submitted application found for Discord ID:", discordId)
+      return false
+    }
+
+    console.log(
+      `Found application with ID: ${existingApp.id}, current status: ${existingApp.status}, submit_count: ${existingApp.submit_count || 0}`,
+    )
+
+    // Update the application status to draft
+    const { data: updateData, error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "draft",
         updated_at: new Date().toISOString(),
         // We don't change submit_count here, it stays the same
       })
-      .eq("discord_id", discordId)
-      .eq("status", "submitted")
+      .eq("id", existingApp.id)
+      .select()
 
-    if (error) {
-      console.error("Error marking application as editable:", error)
+    if (updateError) {
+      console.error("Error marking application as editable:", updateError)
       return false
     }
 
+    console.log("Successfully updated application status to 'draft':", updateData)
     return true
   } catch (error) {
     console.error("Error in markDraftAsEditable:", error)
@@ -359,5 +407,35 @@ export async function getSubmitCount(discordId: string): Promise<number> {
   } catch (error) {
     console.error("Error in getSubmitCount:", error)
     return 0
+  }
+}
+
+/**
+ * Gets the current status of an application
+ */
+export async function getApplicationStatus(discordId: string): Promise<{ status: string | null; submitCount: number }> {
+  try {
+    if (!discordId) {
+      return { status: null, submitCount: 0 }
+    }
+
+    const { data, error } = await supabase
+      .from("draft_applications")
+      .select("status, submit_count")
+      .eq("discord_id", discordId)
+      .maybeSingle()
+
+    if (error) {
+      console.error("Error getting application status:", error)
+      return { status: null, submitCount: 0 }
+    }
+
+    return {
+      status: data?.status || null,
+      submitCount: data?.submit_count || 0,
+    }
+  } catch (error) {
+    console.error("Error in getApplicationStatus:", error)
+    return { status: null, submitCount: 0 }
   }
 }

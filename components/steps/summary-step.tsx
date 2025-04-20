@@ -1,9 +1,11 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
 import { FormSection } from "../ui-components"
 import type { FormData } from "../booster-application-form"
 import { Edit } from "lucide-react"
+import { getApplicationStatus } from "@/lib/supabaseClient"
 
 interface SummaryStepProps {
   formData: FormData
@@ -15,6 +17,8 @@ interface SummaryStepProps {
 
 // Update the SummaryStep component to display the submit count
 export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitting = false }: SummaryStepProps) {
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
+
   // Helper function to format languages for display
   const formatLanguages = () => {
     if (Array.isArray(formData.language)) {
@@ -29,6 +33,21 @@ export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitti
       return "Initial submission"
     } else {
       return `Resubmission #${formData.submitCount}`
+    }
+  }
+
+  // Debug function to check application status
+  const checkStatus = async () => {
+    if (!formData.discordUser?.id) {
+      setDebugInfo("No Discord user ID available")
+      return
+    }
+
+    try {
+      const status = await getApplicationStatus(formData.discordUser.id)
+      setDebugInfo(`Status: ${status.status || "none"}, Submit Count: ${status.submitCount}`)
+    } catch (error) {
+      setDebugInfo(`Error: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -59,6 +78,11 @@ export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitti
               </span>
             </div>
           </div>
+        )}
+
+        {/* Debug info display */}
+        {debugInfo && (
+          <div className="bg-gray-800 border border-gray-700 rounded-md p-4 text-sm font-mono">{debugInfo}</div>
         )}
 
         {/* Discord Verification */}
@@ -243,6 +267,16 @@ export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitti
         >
           Back
         </button>
+
+        {/* Add debug button in development mode */}
+        {process.env.NODE_ENV === "development" && (
+          <button
+            onClick={checkStatus}
+            className="w-full py-2 mt-4 bg-gray-700 text-gray-300 text-sm rounded-md hover:bg-gray-600 transition-colors"
+          >
+            Check Application Status (Debug)
+          </button>
+        )}
       </div>
     </FormSection>
   )

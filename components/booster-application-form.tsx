@@ -339,6 +339,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true)
+      console.log("Starting submission process...")
 
       // Prepare data for submission
       const submissionData = {
@@ -360,18 +361,33 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       }
 
       // Mark the draft as submitted in Supabase if we have a Discord ID
-      // This will increment the submit_count and send the data to the webhook
       if (formData.discordUser?.id) {
-        await markDraftAsSubmitted(formData.discordUser.id)
+        console.log(`Marking application as submitted for Discord ID: ${formData.discordUser.id}`)
+
+        // First ensure the latest form data is saved
+        await saveDraftToSupabase(formData.discordUser.id, formData.discordUser.email || null, formData)
+
+        // Then mark it as submitted
+        const success = await markDraftAsSubmitted(formData.discordUser.id)
+
+        if (!success) {
+          throw new Error("Failed to mark application as submitted in database")
+        }
+
+        console.log("Successfully marked application as submitted")
 
         // Get the updated submit count
         const newSubmitCount = await getSubmitCount(formData.discordUser.id)
+        console.log(`Updated submit count: ${newSubmitCount}`)
 
         // Update the form data with the new submit count
         updateFormData({
           submitCount: newSubmitCount,
           isSubmitted: true,
         })
+      } else {
+        console.error("Cannot submit application: Discord user ID is missing")
+        throw new Error("Discord user ID is missing")
       }
 
       // Set the current step to the Thank You page (step 12)
