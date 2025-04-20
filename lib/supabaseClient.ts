@@ -183,7 +183,6 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
       .from("draft_applications")
       .select("id, submit_count, application_data, status")
       .eq("discord_id", discordId)
-      .eq("status", "draft")
       .single()
 
     if (fetchError) {
@@ -207,7 +206,7 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
     console.log(`Updating draft to status 'submitted' with submit_count: ${newSubmitCount}`)
 
     // Use the proper Supabase client SDK method to update the record by ID
-    const { data, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "submitted",
@@ -215,14 +214,13 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
         updated_at: now,
       })
       .eq("id", currentDraft.id)
-      .select()
 
     if (updateError) {
       console.error("Error marking draft as submitted:", updateError)
       return false
     }
 
-    console.log("Successfully updated draft status to 'submitted':", data)
+    console.log("Successfully updated draft status to 'submitted'")
     return true
   } catch (error) {
     console.error("Error in markDraftAsSubmitted:", error)
