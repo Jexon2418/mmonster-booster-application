@@ -16,15 +16,12 @@ import { submitBoosterApplication } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
-import { TopNavigation } from "./top-navigation"
 import { FixedHeader } from "./fixed-header"
 import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession } from "@/lib/auth-service"
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import { SummaryStep } from "./steps/summary-step"
-// First, import the new ThankYouStep component
 import { ThankYouStep } from "./steps/thank-you-step"
 
-// Update the FormData type to include the isSubmitted flag
 export type DiscordUser = {
   id: string
   username: string
@@ -34,14 +31,13 @@ export type DiscordUser = {
   fullDiscordTag: string
 }
 
-// Update the FormData type to include the isSubmitted flag
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
   games: string[]
   experience: string
   screenshots: File[]
-  uploadedFiles: UploadedFile[] // New field for Supabase Storage uploads
+  uploadedFiles: UploadedFile[]
   marketplaceProfiles?: {
     funpay: string
     g2g: string
@@ -53,7 +49,7 @@ export type FormData = {
   fullName: string
   dateOfBirth: string
   country: string
-  language: string[] | string // Updated to support multiple languages
+  language: string[] | string
   joinedDiscord: boolean
   acceptCrypto: boolean
   cryptoWallet: string
@@ -62,17 +58,16 @@ export type FormData = {
   discordUser?: DiscordUser | null
   isLoadingDraft?: boolean
   returnToSummary?: boolean
-  isSubmitted?: boolean // New flag to track if the application has been submitted
+  isSubmitted?: boolean
 }
 
-// Update the initialFormData to include the isSubmitted flag
 const initialFormData: FormData = {
   classification: "",
   services: [],
   games: [],
   experience: "",
   screenshots: [],
-  uploadedFiles: [], // Initialize as empty array
+  uploadedFiles: [],
   marketplaceProfiles: {
     funpay: "",
     g2g: "",
@@ -84,13 +79,13 @@ const initialFormData: FormData = {
   fullName: "",
   dateOfBirth: "",
   country: "",
-  language: [], // Initialize as empty array for multiple languages
+  language: [],
   joinedDiscord: false,
   acceptCrypto: false,
   cryptoWallet: "",
   discordUser: null,
   returnToSummary: false,
-  isSubmitted: false, // Initialize as false
+  isSubmitted: false,
 }
 
 interface BoosterApplicationFormProps {
@@ -100,7 +95,7 @@ interface BoosterApplicationFormProps {
 export default function BoosterApplicationForm({ initialDiscordCallback = false }: BoosterApplicationFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [isSubmitting, setIsSubmitting] = useState(false) // Fixed: Initialize with false instead of isSubmitting
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -610,14 +605,18 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         {/* Only show step indicator if not on Thank You page */}
         {currentStep !== 12 && <StepIndicator currentStep={currentStep} totalSteps={11} />}
         <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
+          {/* Only show Back button if we're past step 1 and not on Thank You page */}
           {currentStep > 1 && currentStep !== 12 && (
-            <TopNavigation
-              onBack={prevStep}
-              onNext={nextStep}
-              currentStep={currentStep}
-              totalSteps={11}
-              disableNext={isButtonDisabled()}
-            />
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={prevStep}
+                className="px-4 py-2 bg-transparent border border-[#E53E3E]/30 text-[#E53E3E] rounded-md hover:bg-[#E53E3E]/10 transition-colors"
+              >
+                Back
+              </button>
+              {/* Next/Submit button removed as requested */}
+              <div></div> {/* Empty div to maintain layout */}
+            </div>
           )}
           {renderStep()}
         </div>

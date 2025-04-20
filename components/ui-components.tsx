@@ -198,6 +198,7 @@ export function FormInput({ label, required = false, helperText, ...props }: For
       </Label>
       <input
         {...props}
+        placeholder={props.placeholder || "Discord Username"}
         className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
       />
       {helperText && <p className="text-gray-400 text-sm">{helperText}</p>}
@@ -606,7 +607,14 @@ export function FormCheckboxCard({ id, label, checked, onChange }: FormCheckboxC
       className={`flex items-center justify-between p-4 border ${checked ? "border-[#E53E3E]" : "border-[#4A5568]"} rounded-md bg-[#2D3748] hover:bg-[#2D3748]/80 transition-colors cursor-pointer`}
       onClick={() => onChange(!checked)}
     >
-      <Label htmlFor={id} className="text-white cursor-pointer">
+      <Label
+        htmlFor={id}
+        className="text-white cursor-pointer flex-1"
+        onClick={(e) => {
+          e.preventDefault() // Prevent default behavior
+          onChange(!checked) // Directly toggle the checkbox state
+        }}
+      >
         {label}
       </Label>
       <Checkbox
