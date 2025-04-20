@@ -18,10 +18,12 @@ export function ContactStep({ formData, updateFormData, onContinue, onBack }: Co
   // Pre-fill Discord ID with the authenticated user's Discord username if available
   useEffect(() => {
     if (formData.discordUser?.username && !discordId) {
+      // Только добавляем дискриминатор, если он существует и не равен "0"
       const discordTag =
-        formData.discordUser.discriminator && formData.discordUser.discriminator !== "0"
-          ? `${formData.discordUser.username}#${formData.discordUser.discriminator}`
-          : formData.discordUser.username
+        formData.discordUser.username +
+        (formData.discordUser.discriminator && formData.discordUser.discriminator !== "0"
+          ? `#${formData.discordUser.discriminator}`
+          : "")
 
       setDiscordId(discordTag)
       updateFormData({ discordId: discordTag })
@@ -42,7 +44,7 @@ export function ContactStep({ formData, updateFormData, onContinue, onBack }: Co
         <FormInput
           id="discord"
           label="Discord ID"
-          placeholder="YourUsername#0000"
+          placeholder="YourUsername"
           value={discordId}
           onChange={(e) => setDiscordId(e.target.value)}
           required

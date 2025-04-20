@@ -96,7 +96,11 @@ export async function GET(request: Request) {
       discriminator: userData.discriminator || "0",
       avatar: userData.avatar,
       email: userData.email,
-      fullDiscordTag: userData.discriminator ? `${userData.username}#${userData.discriminator}` : userData.username,
+      // Только добавляем дискриминатор, если он существует и не равен "0"
+      fullDiscordTag:
+        userData.discriminator && userData.discriminator !== "0"
+          ? `${userData.username}#${userData.discriminator}`
+          : userData.username,
     }
 
     // Encode the user data to pass it in the URL
