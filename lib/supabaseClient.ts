@@ -1,10 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vaepzzldbinkjaaqxfpk.supabase.co"
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const webhookUrl =
-  process.env.NEXT_PUBLIC_WEBHOOK_SUBMIT_URL ||
-  "https://javesai.app.n8n.cloud/webhook-test/c576e7e7-1d8e-47ee-af17-d6a1068c8a2b"
 
 // Check if the environment variables are defined
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -48,32 +45,6 @@ export type DraftApplication = {
   submit_count: number
   created_at?: string
   updated_at?: string
-}
-
-// Add a function to send data to the webhook
-async function sendToWebhook(data: any): Promise<boolean> {
-  try {
-    console.log("Sending data to webhook:", webhookUrl)
-
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    })
-
-    if (!response.ok) {
-      console.error("Webhook error:", response.status, await response.text())
-      return false
-    }
-
-    console.log("Webhook response:", response.status)
-    return true
-  } catch (error) {
-    console.error("Error sending to webhook:", error)
-    return false
-  }
 }
 
 /**
@@ -231,16 +202,18 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
 
     // Increment the submit_count
     const newSubmitCount = (currentDraft.submit_count || 0) + 1
+    const now = new Date().toISOString()
 
     console.log(`Updating draft to status 'submitted' with submit_count: ${newSubmitCount}`)
 
-    // Update the draft status and submit_count
+    // Update the draft status and submit_count using the built-in Supabase client
+    // This is the correct way to update a record in Supabase
     const { data: updateData, error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "submitted",
         submit_count: newSubmitCount,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("id", currentDraft.id)
       .select()
@@ -251,18 +224,6 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
     }
 
     console.log("Successfully updated draft status to 'submitted':", updateData)
-
-    // Send the application data and submit_count to the webhook
-    const webhookData = {
-      ...currentDraft.application_data,
-      submit_count: newSubmitCount,
-      discord_id: discordId,
-    }
-
-    // Send to webhook asynchronously (don't wait for response)
-    sendToWebhook(webhookData).catch((error) => {
-      console.error("Error sending to webhook:", error)
-    })
 
     return true
   } catch (error) {
