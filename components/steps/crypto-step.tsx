@@ -2,23 +2,24 @@
 
 import { useState } from "react"
 import { FormSection, FormCheckbox, FormInput } from "../ui-components"
+import { Card } from "@/components/ui/card"
 import type { FormData } from "../booster-application-form"
 
 interface CryptoStepProps {
   formData: FormData
   updateFormData: (data: Partial<FormData>) => void
-  onSubmit: () => void
+  onContinue: () => void
   onBack: () => void
   isSubmitting?: boolean
 }
 
-export function CryptoStep({ formData, updateFormData, onSubmit, onBack, isSubmitting = false }: CryptoStepProps) {
+export function CryptoStep({ formData, updateFormData, onContinue, onBack, isSubmitting = false }: CryptoStepProps) {
   const [acceptCrypto, setAcceptCrypto] = useState(formData.acceptCrypto)
   const [cryptoWallet, setCryptoWallet] = useState(formData.cryptoWallet)
 
-  const handleSubmit = () => {
+  const handleContinue = () => {
     updateFormData({ acceptCrypto, cryptoWallet })
-    onSubmit()
+    onContinue()
   }
 
   return (
@@ -27,21 +28,27 @@ export function CryptoStep({ formData, updateFormData, onSubmit, onBack, isSubmi
       description="Since completing orders involves payments for your work, we need to clarify a few points related to payouts."
     >
       <div className="mt-6 space-y-6">
-        <FormCheckbox
-          id="accept-crypto"
-          label={
-            <span>
-              Crypto Payouts Agreement <span className="text-[#E53E3E]">*</span>
-            </span>
-          }
-          checked={acceptCrypto}
-          onChange={setAcceptCrypto}
-          required
-        />
-        <p className="text-gray-400 text-sm ml-8">
-          We process payments exclusively via cryptocurrency (USDT) using the TRC-20 network or via Binance ID. Please
-          confirm that you can receive payments in USDT cryptocurrency.
-        </p>
+        <Card className="border border-[#E53E3E]/30 bg-[#1E2533]">
+          <div className="p-4">
+            <div className="flex items-start space-x-3">
+              <FormCheckbox
+                id="accept-crypto"
+                label={
+                  <span className="font-medium">
+                    Crypto Payouts Agreement <span className="text-[#E53E3E]">*</span>
+                  </span>
+                }
+                checked={acceptCrypto}
+                onChange={setAcceptCrypto}
+                required
+              />
+            </div>
+            <p className="text-gray-400 text-sm mt-3 ml-8">
+              We process payments exclusively via cryptocurrency (USDT) using the TRC-20 network or via Binance ID.
+              Please confirm that you can receive payments in USDT cryptocurrency.
+            </p>
+          </div>
+        </Card>
 
         <div className="mt-4">
           <h3 className="text-white mb-2">Crypto Wallet (optional)</h3>
@@ -61,7 +68,7 @@ export function CryptoStep({ formData, updateFormData, onSubmit, onBack, isSubmi
 
       <div className="mt-8 space-y-4">
         <button
-          onClick={handleSubmit}
+          onClick={handleContinue}
           disabled={!acceptCrypto || isSubmitting}
           className="w-full py-3 bg-[#E53E3E] text-white rounded-md hover:bg-[#E53E3E]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
@@ -80,10 +87,10 @@ export function CryptoStep({ formData, updateFormData, onSubmit, onBack, isSubmi
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 ></path>
               </svg>
-              Submitting...
+              Saving...
             </>
           ) : (
-            "Submit Application"
+            "Continue"
           )}
         </button>
       </div>

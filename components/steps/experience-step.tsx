@@ -1,11 +1,51 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { FormSection, FormButtons, FormTextarea } from "../ui-components"
 import { FileUploader } from "../file-uploader"
 import type { FormData } from "../booster-application-form"
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import { listUserFiles } from "@/lib/supabaseStorage"
+
+// Custom URL input component with https:// prefix
+function UrlInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  // Handle input change and normalize URL
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let url = e.target.value
+
+    // If user pastes a URL with https://, remove it to avoid duplication
+    if (url.startsWith("https://")) {
+      url = url.substring(8)
+    }
+
+    onChange(url)
+  }
+
+  return (
+    <div className="flex items-center w-full">
+      <div className="bg-[#1E2533] text-gray-400 px-3 py-3 border-y border-l border-[#4A5568] rounded-l-md">
+        https://
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-none rounded-r-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+      />
+    </div>
+  )
+}
 
 interface ExperienceStepProps {
   formData: FormData
@@ -52,12 +92,26 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
   }
 
   const handleContinue = () => {
+    // Ensure all URLs have https:// prefix when saving
+    const formattedProfiles = {
+      funpay: formatUrl(marketplaceProfiles.funpay),
+      g2g: formatUrl(marketplaceProfiles.g2g),
+      eldorado: formatUrl(marketplaceProfiles.eldorado),
+      other: formatUrl(marketplaceProfiles.other),
+    }
+
     updateFormData({
       experience,
       uploadedFiles,
-      marketplaceProfiles,
+      marketplaceProfiles: formattedProfiles,
     })
     onContinue()
+  }
+
+  // Helper function to format URLs
+  const formatUrl = (url: string): string => {
+    if (!url) return ""
+    return url.startsWith("https://") ? url : `https://${url}`
   }
 
   return (
@@ -101,33 +155,25 @@ export function ExperienceStep({ formData, updateFormData, onContinue, onBack }:
             If you have profiles on any marketplaces, please provide them in the fields below.
           </p>
           <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="FunPay profile url"
+            <UrlInput
               value={marketplaceProfiles.funpay}
-              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, funpay: e.target.value })}
-              className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+              onChange={(value) => setMarketplaceProfiles({ ...marketplaceProfiles, funpay: value })}
+              placeholder="FunPay profile url"
             />
-            <input
-              type="text"
-              placeholder="G2G profile url"
+            <UrlInput
               value={marketplaceProfiles.g2g}
-              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, g2g: e.target.value })}
-              className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+              onChange={(value) => setMarketplaceProfiles({ ...marketplaceProfiles, g2g: value })}
+              placeholder="G2G profile url"
             />
-            <input
-              type="text"
-              placeholder="eldorado.gg profile url"
+            <UrlInput
               value={marketplaceProfiles.eldorado}
-              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, eldorado: e.target.value })}
-              className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+              onChange={(value) => setMarketplaceProfiles({ ...marketplaceProfiles, eldorado: value })}
+              placeholder="eldorado.gg profile url"
             />
-            <input
-              type="text"
-              placeholder="other marketplace profile url"
+            <UrlInput
               value={marketplaceProfiles.other}
-              onChange={(e) => setMarketplaceProfiles({ ...marketplaceProfiles, other: e.target.value })}
-              className="w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+              onChange={(value) => setMarketplaceProfiles({ ...marketplaceProfiles, other: value })}
+              placeholder="other marketplace profile url"
             />
           </div>
         </div>

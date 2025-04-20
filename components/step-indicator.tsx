@@ -5,7 +5,7 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ currentStep, totalSteps }: StepIndicatorProps) {
   return (
-    <div className="flex justify-center space-x-2">
+    <div className="flex justify-center space-x-2 overflow-x-auto py-2">
       {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
         <div
           key={step}

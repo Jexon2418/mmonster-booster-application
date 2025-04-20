@@ -2,9 +2,16 @@
 
 import type React from "react"
 
+import { useState, useEffect, useRef } from "react"
 import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from "react"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Button } from "@/components/ui/button"
+import { CalendarIcon, Search, ChevronDown, X, Check } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
 interface FormSectionProps {
   title: string
@@ -54,7 +61,136 @@ interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
   helperText?: string
 }
 
+function DatePickerInput({ id, value, onChange, disabled = false }: DatePickerInputProps) {
+  // Convert string date to Date object
+  const date = value ? new Date(value) : undefined
+
+  // State to track the currently displayed month in the calendar
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => date || new Date())
+
+  // Update currentMonth when the selected date changes, but only when the value prop changes
+  useEffect(() => {
+    if (date) {
+      setCurrentMonth(new Date(date))
+    }
+  }, [value]) // Only depend on the value prop, not the date object
+
+  // Handle year selection
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newYear = Number.parseInt(e.target.value)
+
+    // Create a new date based on the current month but with the new year
+    const newDate = new Date(currentMonth)
+    newDate.setFullYear(newYear)
+
+    // Update the current month view
+    setCurrentMonth(newDate)
+
+    // If there's already a selected date, update it with the new year
+    if (date) {
+      const updatedDate = new Date(date)
+      updatedDate.setFullYear(newYear)
+      onChange(updatedDate)
+    }
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          variant="outline"
+          className={cn(
+            "w-full justify-start text-left font-normal px-4 py-6 bg-[#2D3748] border border-[#4A5568] rounded-md text-white hover:bg-[#2D3748]/90 hover:text-white",
+            !date && "text-gray-400",
+            disabled && "opacity-50 cursor-not-allowed",
+          )}
+          disabled={disabled}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {date ? format(date, "PPP") : "Select date"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 bg-[#1E2533] border-[#4A5568]" align="start" sideOffset={5}>
+        <div className="p-3 border-b border-[#4A5568]">
+          <div className="flex justify-between items-center">
+            <select
+              value={currentMonth.getFullYear()}
+              onChange={handleYearChange}
+              className="bg-[#2D3748] text-white border border-[#4A5568] rounded px-2 py-1 text-sm"
+            >
+              {Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - 80 + i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={onChange}
+          month={currentMonth}
+          onMonthChange={setCurrentMonth}
+          initialFocus
+          disabled={disabled}
+          className="bg-[#1E2533] text-white"
+          classNames={{
+            nav_button: "text-white hover:bg-[#2D3748] hover:text-white",
+            nav_button_previous: "absolute left-1",
+            nav_button_next: "absolute right-1",
+            caption: "relative flex justify-center items-center px-8 py-2",
+            cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-[#E53E3E]/10 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+            day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-[#2D3748] hover:text-white",
+            day_selected:
+              "bg-[#E53E3E] text-white hover:bg-[#E53E3E] hover:text-white focus:bg-[#E53E3E] focus:text-white",
+            day_today: "bg-[#2D3748] text-white",
+            day_outside: "text-gray-500 opacity-50",
+            day_disabled: "text-gray-500 opacity-50",
+            day_range_middle: "aria-selected:bg-[#2D3748] aria-selected:text-white",
+            day_hidden: "invisible",
+            head_cell: "text-gray-400 font-normal text-center w-9",
+            table: "border-collapse w-full",
+          }}
+          fixedWeeks
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function FormInput({ label, required = false, helperText, ...props }: FormInputProps) {
+  // Special handling for date inputs
+  if (props.type === "date") {
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={props.id} className="flex items-center text-white">
+          {label} {required && <span className="text-[#E53E3E] ml-1">*</span>}
+        </Label>
+        <DatePickerInput
+          id={props.id || "date-picker"}
+          value={props.value as string}
+          onChange={(date) => {
+            // Create a synthetic event to mimic input change
+            const event = {
+              target: {
+                value: date ? format(date, "yyyy-MM-dd") : "",
+                name: props.name,
+                id: props.id,
+              },
+            } as React.ChangeEvent<HTMLInputElement>
+
+            if (props.onChange) props.onChange(event)
+          }}
+          disabled={props.disabled}
+        />
+        {helperText && <p className="text-gray-400 text-sm">{helperText}</p>}
+      </div>
+    )
+  }
+
+  // Regular input handling
   return (
     <div className="space-y-2">
       <Label htmlFor={props.id} className="flex items-center text-white">
@@ -72,6 +208,13 @@ export function FormInput({ label, required = false, helperText, ...props }: For
 interface FormTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label: string
   required?: boolean
+}
+
+interface DatePickerInputProps {
+  id: string
+  value: string
+  onChange: (date: Date | undefined) => void
+  disabled?: boolean
 }
 
 export function FormTextarea({ label, required = false, ...props }: FormTextareaProps) {
@@ -114,6 +257,271 @@ export function FormSelect({ label, required = false, options, ...props }: FormS
   )
 }
 
+interface SearchableSelectProps extends Omit<InputHTMLAttributes<HTMLSelectElement>, "onChange"> {
+  label: string
+  required?: boolean
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (value: string) => void
+}
+
+export function SearchableSelect({
+  label,
+  required = false,
+  options,
+  value,
+  onChange,
+  ...props
+}: SearchableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Find the selected option label
+  const selectedOption = options.find((option) => option.value === value)
+
+  // Filter options based on search term
+  const filteredOptions = options.filter(
+    (option) => option.label && option.label.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  // Handle clicking outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
+
+  // Handle option selection
+  const handleSelect = (optionValue: string) => {
+    onChange(optionValue)
+    setIsOpen(false)
+    setSearchTerm("")
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={props.id} className="flex items-center text-white">
+        {label} {required && <span className="text-[#E53E3E] ml-1">*</span>}
+      </Label>
+
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          id={props.id}
+        >
+          <span className={value ? "text-white" : "text-gray-400"}>
+            {selectedOption ? selectedOption.label : "Select option"}
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </button>
+
+        {isOpen && (
+          <div className="absolute z-10 w-full mt-1 bg-[#2D3748] border border-[#4A5568] rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="sticky top-0 bg-[#2D3748] p-2 border-b border-[#4A5568]">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  className="w-full pl-8 pr-4 py-2 bg-[#1A202C] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <ul className="py-1" role="listbox">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <li
+                    key={option.value}
+                    className={`px-4 py-2 cursor-pointer hover:bg-[#4A5568] ${
+                      option.value === value ? "bg-[#E53E3E]/10 text-[#E53E3E]" : "text-white"
+                    }`}
+                    onClick={() => handleSelect(option.value)}
+                    role="option"
+                    aria-selected={option.value === value}
+                  >
+                    {option.label}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-2 text-gray-400">No results found</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface MultiSelectDropdownProps extends Omit<InputHTMLAttributes<HTMLSelectElement>, "onChange" | "value"> {
+  label: string
+  required?: boolean
+  options: { value: string; label: string }[]
+  values: string[]
+  onChange: (values: string[]) => void
+}
+
+export function MultiSelectDropdown({
+  label,
+  required = false,
+  options,
+  values,
+  onChange,
+  ...props
+}: MultiSelectDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Find the selected option labels
+  const selectedOptions = options.filter((option) => values.includes(option.value))
+
+  // Filter options based on search term
+  const filteredOptions = options.filter(
+    (option) => option.label && option.label.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  // Handle clicking outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
+
+  // Handle option selection
+  const handleSelect = (optionValue: string) => {
+    if (values.includes(optionValue)) {
+      onChange(values.filter((value) => value !== optionValue))
+    } else {
+      onChange([...values, optionValue])
+    }
+  }
+
+  // Handle removing a selected option
+  const handleRemove = (optionValue: string) => {
+    onChange(values.filter((value) => value !== optionValue))
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={props.id} className="flex items-center text-white">
+        {label} {required && <span className="text-[#E53E3E] ml-1">*</span>}
+      </Label>
+
+      <div className="relative" ref={dropdownRef}>
+        <button
+          type="button"
+          className="flex items-center justify-between w-full px-4 py-3 bg-[#2D3748] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          id={props.id}
+        >
+          <span className={values.length > 0 ? "text-white" : "text-gray-400"}>
+            {values.length > 0 ? `${values.length} selected` : "Select options"}
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </button>
+
+        {/* Selected options display */}
+        {values.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {selectedOptions.map((option) => (
+              <div
+                key={option.value}
+                className="flex items-center bg-[#4A5568] text-white text-sm rounded-md px-2 py-1"
+              >
+                <span className="mr-1">{option.label}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemove(option.value)
+                  }}
+                  className="text-gray-300 hover:text-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {isOpen && (
+          <div className="absolute z-10 w-full mt-1 bg-[#2D3748] border border-[#4A5568] rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="sticky top-0 bg-[#2D3748] p-2 border-b border-[#4A5568]">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  className="w-full pl-8 pr-4 py-2 bg-[#1A202C] border border-[#4A5568] rounded-md text-white focus:outline-none focus:ring-2 focus:ring-[#E53E3E]/50"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <ul className="py-1" role="listbox" aria-multiselectable="true">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option) => (
+                  <li
+                    key={option.value}
+                    className={`px-4 py-2 cursor-pointer hover:bg-[#4A5568] flex items-center justify-between ${
+                      values.includes(option.value) ? "bg-[#E53E3E]/10 text-[#E53E3E]" : "text-white"
+                    }`}
+                    onClick={() => handleSelect(option.value)}
+                    role="option"
+                    aria-selected={values.includes(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    {values.includes(option.value) && <Check className="h-4 w-4" />}
+                  </li>
+                ))
+              ) : (
+                <li className="px-4 py-2 text-gray-400">No results found</li>
+              )}
+            </ul>
+
+            <div className="sticky bottom-0 bg-[#2D3748] p-2 border-t border-[#4A5568]">
+              <button
+                onClick={() => setIsOpen(false)}
+                className="w-full py-2 bg-[#E53E3E] text-white rounded-md hover:bg-[#E53E3E]/90 transition-colors"
+              >
+                Done ({values.length} selected)
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface FormCheckboxProps {
   id: string
   label: ReactNode
@@ -124,15 +532,15 @@ interface FormCheckboxProps {
 
 export function FormCheckbox({ id, label, required = false, checked, onChange }: FormCheckboxProps) {
   return (
-    <div className="flex items-start space-x-3">
+    <div className="flex items-center space-x-4 py-1">
       <Checkbox
         id={id}
         checked={checked}
         onCheckedChange={onChange}
-        className="data-[state=checked]:bg-[#E53E3E] data-[state=checked]:border-[#E53E3E] border-[#4A5568] mt-1"
+        className="data-[state=checked]:bg-[#E53E3E] data-[state=checked]:border-[#E53E3E] border-[#4A5568] h-5 w-5"
       />
-      <Label htmlFor={id} className="text-white cursor-pointer">
-        {label} {required && <span className="text-[#E53E3E] ml-1">*</span>}
+      <Label htmlFor={id} className="text-white cursor-pointer text-base">
+        {label}
       </Label>
     </div>
   )

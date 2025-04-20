@@ -20,6 +20,7 @@ import { TopNavigation } from "./top-navigation"
 import { FixedHeader } from "./fixed-header"
 import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession } from "@/lib/auth-service"
 import type { UploadedFile } from "@/lib/supabaseStorage"
+import { SummaryStep } from "./steps/summary-step"
 
 export type DiscordUser = {
   id: string
@@ -48,7 +49,7 @@ export type FormData = {
   fullName: string
   dateOfBirth: string
   country: string
-  language: string
+  language: string[] | string // Updated to support multiple languages
   joinedDiscord: boolean
   acceptCrypto: boolean
   cryptoWallet: string
@@ -56,6 +57,7 @@ export type FormData = {
   status?: "pending" | "approved" | "rejected"
   discordUser?: DiscordUser | null
   isLoadingDraft?: boolean
+  returnToSummary?: boolean
 }
 
 const initialFormData: FormData = {
@@ -76,11 +78,12 @@ const initialFormData: FormData = {
   fullName: "",
   dateOfBirth: "",
   country: "",
-  language: "",
+  language: [], // Initialize as empty array for multiple languages
   joinedDiscord: false,
   acceptCrypto: false,
   cryptoWallet: "",
   discordUser: null,
+  returnToSummary: false,
 }
 
 interface BoosterApplicationFormProps {
@@ -90,7 +93,7 @@ interface BoosterApplicationFormProps {
 export default function BoosterApplicationForm({ initialDiscordCallback = false }: BoosterApplicationFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>(initialFormData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // Fixed: Initialize with false instead of isSubmitting
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isLoadingDraft, setIsLoadingDraft] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -150,6 +153,12 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
               discordUser: prevData.discordUser,
               // Initialize uploadedFiles if it doesn't exist
               uploadedFiles: draftData.uploadedFiles || [],
+              // Ensure language is an array
+              language: Array.isArray(draftData.language)
+                ? draftData.language
+                : draftData.language
+                  ? [draftData.language]
+                  : [],
             }
 
             return mergedData
@@ -174,7 +183,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
   // Improved nextStep function with better state management
   const nextStep = useCallback(() => {
-    if (currentStep < 10) {
+    if (currentStep < 11) {
       // Save current progress before moving to next step
       if (formData.discordUser?.id) {
         saveDraftToSupabase(formData.discordUser.id, formData.discordUser.email || null, formData).catch((error) => {
@@ -182,10 +191,16 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         })
       }
 
-      setCurrentStep((prevStep) => prevStep + 1)
+      // If we should return to summary after editing a step
+      if (formData.returnToSummary && currentStep >= 3 && currentStep <= 10) {
+        setCurrentStep(11) // Go directly to summary step
+        updateFormData({ returnToSummary: false }) // Reset the flag
+      } else {
+        setCurrentStep((prevStep) => prevStep + 1)
+      }
       window.scrollTo(0, 0)
     }
-  }, [currentStep, formData])
+  }, [currentStep, formData, updateFormData])
 
   const prevStep = useCallback(() => {
     if (currentStep > 1) {
@@ -370,15 +385,32 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       case 7: // Contact
         return !formData.discordId
       case 8: // Personal
-        return !formData.fullName || !formData.dateOfBirth || !formData.country || !formData.language
+        return (
+          !formData.fullName ||
+          !formData.dateOfBirth ||
+          !formData.country ||
+          (Array.isArray(formData.language) ? formData.language.length === 0 : !formData.language)
+        )
       case 9: // Discord server
         return !formData.joinedDiscord
       case 10: // Crypto
         return !formData.acceptCrypto || isSubmitting
+      case 11: // Summary
+        return isSubmitting
       default:
         return false
     }
   }
+
+  const handleEditStep = useCallback(
+    (step: number) => {
+      // Set the flag to return to summary after editing
+      updateFormData({ returnToSummary: true })
+      setCurrentStep(step)
+      window.scrollTo(0, 0)
+    },
+    [updateFormData],
+  )
 
   const renderStep = () => {
     switch (currentStep) {
@@ -442,8 +474,18 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           <CryptoStep
             formData={formData}
             updateFormData={updateFormData}
+            onContinue={nextStep}
+            onBack={prevStep}
+            isSubmitting={isSubmitting}
+          />
+        )
+      case 11:
+        return (
+          <SummaryStep
+            formData={formData}
             onSubmit={handleSubmit}
             onBack={prevStep}
+            onEditStep={handleEditStep}
             isSubmitting={isSubmitting}
           />
         )
@@ -472,14 +514,14 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
       {/* Main Content - with padding to account for fixed header */}
       <div className="w-full max-w-3xl px-4">
-        <StepIndicator currentStep={currentStep} totalSteps={10} />
+        <StepIndicator currentStep={currentStep} totalSteps={11} />
         <div className="mt-4 bg-[#1A202C] border border-[#E53E3E]/30 rounded-xl p-8 text-white">
           {currentStep > 1 && (
             <TopNavigation
               onBack={prevStep}
               onNext={nextStep}
               currentStep={currentStep}
-              totalSteps={10}
+              totalSteps={11}
               disableNext={isButtonDisabled()}
             />
           )}
