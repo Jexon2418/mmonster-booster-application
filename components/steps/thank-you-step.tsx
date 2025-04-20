@@ -9,9 +9,10 @@ import type { DiscordUser } from "../booster-application-form"
 interface ThankYouStepProps {
   onEditApplication: () => void
   discordUser: DiscordUser | null
+  submitCount?: number
 }
 
-export function ThankYouStep({ onEditApplication, discordUser }: ThankYouStepProps) {
+export function ThankYouStep({ onEditApplication, discordUser, submitCount = 0 }: ThankYouStepProps) {
   const [isResetting, setIsResetting] = useState(false)
 
   const handleEditApplication = async () => {
@@ -37,6 +38,12 @@ export function ThankYouStep({ onEditApplication, discordUser }: ThankYouStepPro
         <CheckCircle className="h-24 w-24 text-green-500 mb-6" />
 
         <h2 className="text-2xl font-bold text-white text-center mb-4">Thank You for Your Application</h2>
+
+        {submitCount > 1 && (
+          <div className="bg-[#E53E3E]/10 border border-[#E53E3E]/30 rounded-md p-3 mb-4 max-w-md">
+            <p className="text-center text-[#E53E3E]">This is submission #{submitCount} of your application</p>
+          </div>
+        )}
 
         <div className="text-center text-gray-300 mb-8 max-w-lg">
           <p className="mb-4">

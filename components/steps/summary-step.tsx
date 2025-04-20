@@ -13,6 +13,7 @@ interface SummaryStepProps {
   isSubmitting?: boolean
 }
 
+// Update the SummaryStep component to display the submit count
 export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitting = false }: SummaryStepProps) {
   // Helper function to format languages for display
   const formatLanguages = () => {
@@ -22,12 +23,44 @@ export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitti
     return formData.language || "Not provided"
   }
 
+  // Add a helper to display the submission status
+  const getSubmissionStatus = () => {
+    if (formData.submitCount === 0) {
+      return "Initial submission"
+    } else {
+      return `Resubmission #${formData.submitCount}`
+    }
+  }
+
   return (
     <FormSection
       title="Application Summary"
       description="Please review your application details before submitting. If you need to make changes, click the edit button next to any section."
     >
       <div className="space-y-8 mt-6">
+        {/* Add Submission Status */}
+        {formData.submitCount !== undefined && formData.submitCount > 0 && (
+          <div className="bg-[#E53E3E]/10 border border-[#E53E3E]/30 rounded-md p-4">
+            <div className="flex items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-[#E53E3E] mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="text-[#E53E3E] font-medium">
+                {getSubmissionStatus()} - You are editing a previously submitted application
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Discord Verification */}
         <SummarySection title="Discord Verification" onEdit={() => onEditStep(1)}>
           {formData.discordUser && (
@@ -197,6 +230,8 @@ export function SummaryStep({ formData, onSubmit, onBack, onEditStep, isSubmitti
               </svg>
               Submitting...
             </>
+          ) : formData.submitCount && formData.submitCount > 0 ? (
+            "Resubmit Application"
           ) : (
             "Submit Application"
           )}

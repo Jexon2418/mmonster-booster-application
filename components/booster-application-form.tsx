@@ -12,7 +12,6 @@ import { PersonalStep } from "./steps/personal-step"
 import { DiscordServerStep } from "./steps/discord-server-step"
 import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
-import { submitBoosterApplication } from "@/lib/api"
 import { useSearchParams } from "next/navigation"
 import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
@@ -21,6 +20,7 @@ import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import { SummaryStep } from "./steps/summary-step"
 import { ThankYouStep } from "./steps/thank-you-step"
+import { getSubmitCount } from "@/lib/supabaseClient"
 
 export type DiscordUser = {
   id: string
@@ -31,6 +31,7 @@ export type DiscordUser = {
   fullDiscordTag: string
 }
 
+// Add submitCount to FormData type
 export type FormData = {
   classification: "solo" | "group" | "reseller" | ""
   services: string[]
@@ -59,8 +60,10 @@ export type FormData = {
   isLoadingDraft?: boolean
   returnToSummary?: boolean
   isSubmitted?: boolean
+  submitCount?: number
 }
 
+// Update the initialFormData to include submitCount
 const initialFormData: FormData = {
   classification: "",
   services: [],
@@ -86,6 +89,7 @@ const initialFormData: FormData = {
   discordUser: null,
   returnToSummary: false,
   isSubmitted: false,
+  submitCount: 0,
 }
 
 interface BoosterApplicationFormProps {
@@ -132,7 +136,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     [isInitialized],
   )
 
-  // Modify the loadDraft function to remove the step setting logic
+  // In the loadDraft function, update to fetch the submit count
   const loadDraft = useCallback(
     async (discordId: string) => {
       if (!discordId || draftLoadedRef.current) return
@@ -140,6 +144,9 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
       setIsLoadingDraft(true)
       try {
         const draftData = await loadDraftFromSupabase(discordId)
+
+        // Get the current submit count
+        // const submitCount = await getSubmitCount(discordId)
 
         // Update the toast message to be clearer about how to proceed
         if (draftData) {
@@ -161,6 +168,8 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
                 : draftData.language
                   ? [draftData.language]
                   : [],
+              // Add the submit count
+              // submitCount: submitCount
             }
 
             return mergedData
@@ -350,16 +359,20 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         submissionData.uploadedFilePaths = submissionData.uploadedFiles.map((file) => file.path)
       }
 
-      // Send data to n8n
-      await submitBoosterApplication(submissionData)
-
       // Mark the draft as submitted in Supabase if we have a Discord ID
+      // This will increment the submit_count and send the data to the webhook
       if (formData.discordUser?.id) {
         await markDraftAsSubmitted(formData.discordUser.id)
-      }
 
-      // Update form data to indicate submission
-      updateFormData({ isSubmitted: true })
+        // Get the updated submit count
+        const newSubmitCount = await getSubmitCount(formData.discordUser.id)
+
+        // Update the form data with the new submit count
+        updateFormData({
+          submitCount: newSubmitCount,
+          isSubmitted: true,
+        })
+      }
 
       // Set the current step to the Thank You page (step 12)
       setCurrentStep(12)
@@ -368,9 +381,6 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         title: "Application Submitted",
         description: "Your application has been successfully submitted. We'll review it shortly.",
       })
-
-      // Note: We no longer reset the form data or redirect to step 1
-      // This allows the user to edit their application if needed
     } catch (error) {
       console.error("Error submitting form:", error)
       toast({
@@ -575,7 +585,13 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
           />
         )
       case 12:
-        return <ThankYouStep onEditApplication={handleEditApplication} discordUser={formData.discordUser} />
+        return (
+          <ThankYouStep
+            onEditApplication={handleEditApplication}
+            discordUser={formData.discordUser}
+            submitCount={formData.submitCount}
+          />
+        )
       default:
         return (
           <DiscordAuthStep
