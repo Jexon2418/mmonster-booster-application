@@ -206,25 +206,23 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
 
     console.log(`Updating draft to status 'submitted' with submit_count: ${newSubmitCount}`)
 
-    // Update the draft status and submit_count using the built-in Supabase client
-    // This is the correct way to update a record in Supabase
-    const { data: updateData, error: updateError } = await supabase
+    // Используем discord_id вместо id для обновления записи
+    const { error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "submitted",
         submit_count: newSubmitCount,
         updated_at: now,
       })
-      .eq("id", currentDraft.id)
-      .select()
+      .eq("discord_id", discordId)
+      .eq("status", "draft")
 
     if (updateError) {
       console.error("Error marking draft as submitted:", updateError)
       return false
     }
 
-    console.log("Successfully updated draft status to 'submitted':", updateData)
-
+    console.log("Successfully updated draft status to 'submitted'")
     return true
   } catch (error) {
     console.error("Error in markDraftAsSubmitted:", error)
