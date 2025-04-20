@@ -18,6 +18,7 @@ import {
   loadDraftFromSupabase,
   markDraftAsSubmitted,
   getApplicationStatus,
+  getSubmitCount,
 } from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
 import { FixedHeader } from "./fixed-header"
@@ -25,7 +26,6 @@ import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession
 import type { UploadedFile } from "@/lib/supabaseStorage"
 import { SummaryStep } from "./steps/summary-step"
 import { ThankYouStep } from "./steps/thank-you-step"
-import { getSubmitCount } from "@/lib/supabaseClient"
 
 export type DiscordUser = {
   id: string
@@ -366,7 +366,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     })
   }, [toast])
 
-  // Update the handleSubmit function to set the current step to 12 after successful submission
+  // Update the handleSubmit function to ensure the webhook is triggered
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true)
@@ -398,7 +398,7 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
         // First ensure the latest form data is saved
         await saveDraftToSupabase(formData.discordUser.id, formData.discordUser.email || null, formData)
 
-        // Then mark it as submitted
+        // Then mark it as submitted - this will trigger the webhook
         const success = await markDraftAsSubmitted(formData.discordUser.id)
 
         if (!success) {
