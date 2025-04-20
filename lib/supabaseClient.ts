@@ -1,7 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://vaepzzldbinkjaaqxfpk.supabase.co"
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const webhookUrl =
+  process.env.NEXT_PUBLIC_WEBHOOK_SUBMIT_URL ||
+  "https://javesai.app.n8n.cloud/webhook-test/c576e7e7-1d8e-47ee-af17-d6a1068c8a2b"
 
 // Check if the environment variables are defined
 if (!supabaseUrl || !supabaseAnonKey) {
@@ -13,6 +16,11 @@ export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "", {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+  },
+  global: {
+    fetch: (...args) => {
+      return fetch(...args)
+    },
   },
 })
 
@@ -40,6 +48,32 @@ export type DraftApplication = {
   submit_count: number
   created_at?: string
   updated_at?: string
+}
+
+// Add a function to send data to the webhook
+async function sendToWebhook(data: any): Promise<boolean> {
+  try {
+    console.log("Sending data to webhook:", webhookUrl)
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      console.error("Webhook error:", response.status, await response.text())
+      return false
+    }
+
+    console.log("Webhook response:", response.status)
+    return true
+  } catch (error) {
+    console.error("Error sending to webhook:", error)
+    return false
+  }
 }
 
 /**
@@ -163,7 +197,6 @@ export async function loadDraftFromSupabase(discordId: string): Promise<any | nu
 
 /**
  * Marks a draft application as submitted in Supabase
- * This will trigger the database trigger to send the webhook notification
  */
 export async function markDraftAsSubmitted(discordId: string): Promise<boolean> {
   try {
@@ -174,11 +207,12 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
 
     console.log(`Attempting to mark application as submitted for Discord ID: ${discordId}`)
 
-    // First, get the current draft record
+    // First, get the current draft to access submit_count and application_data
     const { data: currentDraft, error: fetchError } = await supabase
       .from("draft_applications")
-      .select("id, submit_count")
+      .select("id, submit_count, application_data, status")
       .eq("discord_id", discordId)
+      .eq("status", "draft")
       .single()
 
     if (fetchError) {
@@ -186,35 +220,50 @@ export async function markDraftAsSubmitted(discordId: string): Promise<boolean> 
       return false
     }
 
-    if (!currentDraft || !currentDraft.id) {
-      console.error("No draft found for submission or missing ID. Discord ID:", discordId)
+    if (!currentDraft) {
+      console.error("No draft found for submission. Discord ID:", discordId)
       return false
     }
 
-    console.log(`Found draft with ID: ${currentDraft.id}, current submit_count: ${currentDraft.submit_count || 0}`)
+    console.log(
+      `Found draft with ID: ${currentDraft.id}, current status: ${currentDraft.status}, current submit_count: ${currentDraft.submit_count || 0}`,
+    )
 
     // Increment the submit_count
     const newSubmitCount = (currentDraft.submit_count || 0) + 1
-    const now = new Date().toISOString()
 
     console.log(`Updating draft to status 'submitted' with submit_count: ${newSubmitCount}`)
 
-    // Update the record using the database ID
-    const { error: updateError } = await supabase
+    // Update the draft status and submit_count
+    const { data: updateData, error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "submitted",
         submit_count: newSubmitCount,
-        updated_at: now,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", currentDraft.id)
+      .select()
 
     if (updateError) {
       console.error("Error marking draft as submitted:", updateError)
       return false
     }
 
-    console.log("Successfully updated draft status to 'submitted'")
+    console.log("Successfully updated draft status to 'submitted':", updateData)
+
+    // Send the application data and submit_count to the webhook
+    const webhookData = {
+      ...currentDraft.application_data,
+      submit_count: newSubmitCount,
+      discord_id: discordId,
+    }
+
+    // Send to webhook asynchronously (don't wait for response)
+    sendToWebhook(webhookData).catch((error) => {
+      console.error("Error sending to webhook:", error)
+    })
+
     return true
   } catch (error) {
     console.error("Error in markDraftAsSubmitted:", error)
@@ -257,7 +306,7 @@ export async function markDraftAsEditable(discordId: string): Promise<boolean> {
     )
 
     // Update the application status to draft
-    const { error: updateError } = await supabase
+    const { data: updateData, error: updateError } = await supabase
       .from("draft_applications")
       .update({
         status: "draft",
@@ -265,13 +314,14 @@ export async function markDraftAsEditable(discordId: string): Promise<boolean> {
         // We don't change submit_count here, it stays the same
       })
       .eq("id", existingApp.id)
+      .select()
 
     if (updateError) {
       console.error("Error marking application as editable:", updateError)
       return false
     }
 
-    console.log("Successfully updated application status to 'draft'")
+    console.log("Successfully updated application status to 'draft':", updateData)
     return true
   } catch (error) {
     console.error("Error in markDraftAsEditable:", error)
@@ -308,8 +358,34 @@ export async function hasSubmittedApplication(discordId: string): Promise<boolea
 }
 
 /**
- * Gets the current submit_count
+ * Deletes a draft application from Supabase
  */
+export async function deleteDraft(discordId: string): Promise<boolean> {
+  try {
+    if (!discordId) {
+      console.error("Cannot delete draft: Discord ID is missing")
+      return false
+    }
+
+    const { error } = await supabase
+      .from("draft_applications")
+      .delete()
+      .eq("discord_id", discordId)
+      .eq("status", "draft")
+
+    if (error) {
+      console.error("Error deleting draft application:", error)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error in deleteDraft:", error)
+    return false
+  }
+}
+
+// Add a function to get the current submit_count
 export async function getSubmitCount(discordId: string): Promise<number> {
   try {
     if (!discordId) {

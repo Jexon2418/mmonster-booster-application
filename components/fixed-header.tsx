@@ -43,7 +43,6 @@ export function FixedHeader({ user, onLogout, onLogin, isLoginStep = false }: Fi
             </div>
             <span className="text-white text-sm mr-3 hidden sm:inline">
               {user.username}
-              {/* Только показываем дискриминатор, если он существует и не равен "0" */}
               {user.discriminator && user.discriminator !== "0" && (
                 <span className="text-gray-400">#{user.discriminator}</span>
               )}
