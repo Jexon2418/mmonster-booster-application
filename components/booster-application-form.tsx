@@ -13,7 +13,12 @@ import { DiscordServerStep } from "./steps/discord-server-step"
 import { CryptoStep } from "./steps/crypto-step"
 import { StepIndicator } from "./step-indicator"
 import { useSearchParams } from "next/navigation"
-import { saveDraftToSupabase, loadDraftFromSupabase, markDraftAsSubmitted } from "@/lib/supabaseClient"
+import {
+  saveDraftToSupabase,
+  loadDraftFromSupabase,
+  markDraftAsSubmitted,
+  getApplicationStatus,
+} from "@/lib/supabaseClient"
 import { useToast } from "@/hooks/use-toast"
 import { FixedHeader } from "./fixed-header"
 import { saveDiscordUser, getDiscordUser, clearDiscordUser, verifyDiscordSession } from "@/lib/auth-service"
@@ -231,24 +236,46 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
 
         // Save the Discord user to localStorage and Supabase
         saveDiscordUser(discordUser)
+          .then(async (success) => {
+            if (success) {
+              // Update form data with Discord user info
+              updateFormData({
+                discordId: discordUser.fullDiscordTag,
+                discordUser: discordUser,
+              })
 
-        // Update form data with Discord user info
-        updateFormData({
-          discordId: discordUser.fullDiscordTag,
-          discordUser: discordUser,
-        })
+              // Check if the user has a submitted application
+              const status = await getApplicationStatus(discordUser.id)
 
-        // Always move to Discord verification success step (step 2)
-        // regardless of any draft data
-        console.log("Setting step to Discord Verification Success (2) due to discord_user param")
-        setCurrentStep(2)
+              if (status.status === "submitted") {
+                // If the user has a submitted application, set isSubmitted to true
+                // and redirect to the Thank You page
+                console.log("User has a submitted application, redirecting to Thank You page")
+                updateFormData({
+                  isSubmitted: true,
+                  submitCount: status.submitCount || 0,
+                })
+                setCurrentStep(12) // Thank You page
+              } else {
+                // Move to next step
+                setCurrentStep(2)
+              }
 
-        // Clean up URL params
-        const url = new URL(window.location.href)
-        url.searchParams.delete("discord_user")
-        window.history.replaceState({}, document.title, url.toString())
+              // Clean up URL params
+              const url = new URL(window.location.href)
+              url.searchParams.delete("discord_user")
+              window.history.replaceState({}, document.title, url.toString())
+            } else {
+              // setError("Failed to save Discord user data. Please try again.")
+            }
+          })
+          .catch((error) => {
+            console.error("Error saving Discord user:", error)
+            // setError("An error occurred during authentication. Please try again.")
+          })
       } catch (e) {
         console.error("Error parsing Discord user data:", e)
+        // setError("Failed to process Discord authentication data")
       }
     }
   }, [searchParams, updateFormData])
@@ -275,19 +302,23 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
             })
 
             // Check if the user has a submitted application
-            // const hasSubmitted = await hasSubmittedApplication(savedDiscordUser.id);
+            const status = await getApplicationStatus(savedDiscordUser.id)
 
-            // if (hasSubmitted) {
-            // If the user has a submitted application, set isSubmitted to true
-            // and redirect to the Thank You page
-            //   updateFormData({ isSubmitted: true });
-            //   setCurrentStep(12);
-            // } else {
-            // Load draft data if available
-            loadDraft(savedDiscordUser.id)
-            // Always set to step 2 (Discord verification success) after authentication
-            setCurrentStep(2)
-            // }
+            if (status.status === "submitted") {
+              // If the user has a submitted application, set isSubmitted to true
+              // and redirect to the Thank You page
+              console.log("User has a submitted application, redirecting to Thank You page")
+              updateFormData({
+                isSubmitted: true,
+                submitCount: status.submitCount || 0,
+              })
+              setCurrentStep(12) // Thank You page
+            } else {
+              // Load draft data if available
+              loadDraft(savedDiscordUser.id)
+              // Set to step 2 (Discord verification success) after authentication
+              setCurrentStep(2)
+            }
           } else {
             // If session is invalid, clear the user data
             clearDiscordUser()
@@ -416,69 +447,6 @@ export default function BoosterApplicationForm({ initialDiscordCallback = false 
     // Update form data to indicate it's no longer submitted
     updateFormData({ isSubmitted: false })
   }, [updateFormData])
-
-  // Update the useEffect for initializing the form with existing session
-  // to check if the user has a submitted application
-  useEffect(() => {
-    // Only run this once
-    if (initRef.current) return
-    initRef.current = true
-
-    // First check if we have a Discord user in localStorage
-    const savedDiscordUser = getDiscordUser()
-
-    if (savedDiscordUser) {
-      // Verify the session with Supabase
-      verifyDiscordSession(savedDiscordUser.id)
-        .then(async (isValid) => {
-          if (isValid) {
-            // If session is valid, update the form data
-            updateFormData({
-              discordId: savedDiscordUser.fullDiscordTag,
-              discordUser: savedDiscordUser,
-            })
-
-            // Check if the user has a submitted application
-            // const hasSubmitted = await hasSubmittedApplication(savedDiscordUser.id);
-
-            // if (hasSubmitted) {
-            // If the user has a submitted application, set isSubmitted to true
-            // and redirect to the Thank You page
-            //   updateFormData({ isSubmitted: true });
-            //   setCurrentStep(12);
-            // } else {
-            // Load draft data if available
-            loadDraft(savedDiscordUser.id)
-            // Always set to step 2 (Discord verification success) after authentication
-            setCurrentStep(2)
-            // }
-          } else {
-            // If session is invalid, clear the user data
-            clearDiscordUser()
-            toast({
-              title: "Session Expired",
-              description: "Your Discord session has expired. Please log in again.",
-            })
-          }
-
-          // Mark as initialized after session check
-          setIsInitialized(true)
-        })
-        .catch((error) => {
-          console.error("Error verifying Discord session:", error)
-          setIsInitialized(true)
-        })
-    } else {
-      // No saved user, just mark as initialized
-      setIsInitialized(true)
-
-      // If this is a return from Discord OAuth, set step to 1
-      if (initialDiscordCallback) {
-        console.log("Setting step to Discord Auth (1) due to OAuth callback")
-        setCurrentStep(1)
-      }
-    }
-  }, [initialDiscordCallback, updateFormData, loadDraft, toast])
 
   const isButtonDisabled = () => {
     switch (currentStep) {
